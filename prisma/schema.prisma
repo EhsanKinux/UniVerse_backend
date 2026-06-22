@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// The "client" generator tells Prisma to build a fully type-safe database
+// client from the models below. Prisma 7 generates it into our own source tree
+// (so it gets compiled with the app) instead of hiding it inside node_modules.
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+
+  // Emit CommonJS-compatible code. NestJS compiles to CommonJS by default, but
+  // Prisma 7 defaults to ESM and would generate `import.meta` calls that crash
+  // at runtime under CommonJS. This keeps the generated client compatible.
+  moduleFormat = "cjs"
+}
+
+// The datasource is the database connection. The actual URL is supplied in
+// prisma.config.ts (which reads DATABASE_URL from .env), keeping secrets out
+// of this schema file.
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// MODELS — each "model" becomes a table in the database.
+// =============================================================================
+
+// A registered user of the application.
+model User {
+  // Primary key. cuid() generates a short, collision-resistant, URL-safe id
+  // (safer to expose publicly than a guessable auto-incrementing number).
+  id String @id @default(cuid())
+
+  // The login identifier. @unique means the database enforces no duplicates.
+  email String @unique
+
+  // The password, stored ONLY as a bcrypt hash — never in plain text.
+  password String
+
+  // Optional display name.
+  name String?
+
+  // bcrypt hash of the user's current refresh token. Lets us validate refresh
+  // requests and revoke sessions (set to null on logout). Nullable = logged out.
+  hashedRefreshToken String?
+
+  // Timestamps Prisma maintains automatically.
+  createdAt DateTime @default(now()) // set once, when the row is created
+  updatedAt DateTime @updatedAt // updated every time the row changes
+
+  // Store this model in a table literally named "users" (lowercase plural is a
+  // common SQL convention), rather than the default "User".
+  @@map("users")
+}
