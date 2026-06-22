@@ -1,0 +1,35 @@
+# Docker Compose runs a PostgreSQL database for local development so you don't
+# have to install Postgres on your machine directly.
+#
+#   Start the database:   docker compose up -d     (-d = run in background)
+#   Stop the database:    docker compose down
+#   View logs:            docker compose logs -f db
+#
+# Your data lives in a named volume (see bottom), so it survives restarts.
+
+services:
+  db:
+    image: postgres:17-alpine # Official Postgres 17, small "alpine" Linux variant
+    container_name: univers-postgres
+    restart: unless-stopped
+    ports:
+      # host:container — exposes the DB on your machine at localhost:5432
+      - '5432:5432'
+    environment:
+      # These three lines create the user, password, and database on first run.
+      # They MUST match the DATABASE_URL in your .env file.
+      POSTGRES_USER: univers
+      POSTGRES_PASSWORD: univers_dev_password
+      POSTGRES_DB: univers
+    volumes:
+      # Persists the actual database files between container restarts
+      - univers-db-data:/var/lib/postgresql/data
+    healthcheck:
+      # Lets Docker (and us) know when Postgres is truly ready to accept connections
+      test: ['CMD-SHELL', 'pg_isready -U univers -d univers']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  univers-db-data:
