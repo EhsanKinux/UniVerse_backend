@@ -21,5 +21,19 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
+  },
+
+  // Settings used ONLY by ts-node (e.g. `npm run db:seed`), not by `nest build`.
+  // The app builds with module "nodenext", but ts-node runs the Prisma 7
+  // generated client more reliably as CommonJS, and `experimentalResolver` lets
+  // its internal `.js` imports resolve to the on-disk `.ts` files.
+  "ts-node": {
+    "transpileOnly": true,
+    "experimentalResolver": true,
+    "compilerOptions": {
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "resolvePackageJsonExports": false
+    }
   }
 }
