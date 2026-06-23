@@ -1,7 +1,12 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import session from 'express-session';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import hbs from 'hbs';
 import { AppModule } from './app.module';
 
 /**
@@ -9,8 +14,42 @@ import { AppModule } from './app.module';
  * we attach a few global behaviors before listening for requests.
  */
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
+
+  // --- Admin session + view engine -------------------------------------------
+  // The /admin panel is server-rendered (Handlebars templates) and gated by a
+  // simple shared login held in a signed session cookie (no per-user roles).
+  app.use(
+    session({
+      secret: configService.getOrThrow<string>('SESSION_SECRET'),
+      resave: false, // don't re-write unchanged sessions on every request
+      saveUninitialized: false, // don't create empty sessions for anonymous hits
+      cookie: {
+        httpOnly: true, // the browser's JavaScript can't read this cookie
+        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 8, // sign back in after 8 hours
+      },
+    }),
+  );
+
+  // Server-rendered admin views live in /views (.hbs), sharing partials.
+  app.setBaseViewsDir(join(process.cwd(), 'views'));
+  // Register shared partials SYNCHRONOUSLY. hbs.registerPartials() reads the
+  // directory asynchronously and can race with the first request (a partial then
+  // "could not be found"), so we read + register each one up-front instead.
+  const partialsDir = join(process.cwd(), 'views', 'partials');
+  for (const file of readdirSync(partialsDir)) {
+    if (file.endsWith('.hbs')) {
+      hbs.registerPartial(
+        file.replace(/\.hbs$/, ''),
+        readFileSync(join(partialsDir, file), 'utf8'),
+      );
+    }
+  }
+  // A tiny helper so a template can mark the selected <option> in a dropdown.
+  hbs.registerHelper('eq', (a: unknown, b: unknown) => a === b);
+  app.setViewEngine('hbs');
 
   // --- Global validation -----------------------------------------------------
   // Applies our DTO rules (class-validator) to EVERY incoming request body.

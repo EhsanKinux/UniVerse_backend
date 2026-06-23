@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
@@ -23,6 +25,8 @@ import { UsersModule } from './users/users.module';
     PrismaModule, // database access (global)
     UsersModule, // user records
     AuthModule, // register / login / refresh / logout / me
+    CalendarModule, // academic calendar: public read API
+    AdminModule, // server-rendered staff panel at /admin
   ],
   controllers: [AppController],
   providers: [AppService],
