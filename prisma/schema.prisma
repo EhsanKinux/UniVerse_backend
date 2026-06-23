@@ -54,3 +54,82 @@ model User {
   // common SQL convention), rather than the default "User".
   @@map("users")
 }
+
+// =============================================================================
+// ACADEMIC CALENDAR (تقویم آموزشی)
+// University staff edit these rows from the /admin panel each term — no code
+// changes needed. A "Semester" groups the dated events shown on the calendar.
+// =============================================================================
+
+// One academic term, e.g. "نیمسال دوم ۱۴۰۴-۱۴۰۵". Exactly one row is marked
+// active at a time; the public API (and the PWA) always read the active one.
+model Semester {
+  id String @id @default(cuid())
+
+  // The heading shown above the calendar, in Persian.
+  title String
+
+  // Optional smaller line under the title (e.g. "مصوب شورای آموزشی دانشگاه").
+  subtitle String?
+
+  // Only ONE semester should be active at a time. We enforce that in code
+  // (activating one deactivates the others) rather than in the schema, because
+  // SQL can't easily express "at most one row may be true".
+  isActive Boolean @default(false)
+
+  // The events belonging to this semester. The cascade is declared on the event
+  // side, so deleting a semester also removes its events.
+  events CalendarEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("semesters")
+}
+
+// A single dated row of the calendar, e.g. "انتخاب واحد ورودی ۴۰۲ و ماقبل".
+model CalendarEvent {
+  id String @id @default(cuid())
+
+  // Which semester this row belongs to.
+  semesterId String
+  semester   Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  // The event name in Persian, e.g. "شروع کلاس‌ها".
+  title String
+
+  // A coarse category that drives the colour + filter chips in the PWA. We keep
+  // it a plain string (validated in the DTO against a known set) instead of a
+  // Prisma enum, so adding a category later needs NO migration.
+  // Known values: registration | addDrop | exams | academic | holiday
+  category String
+
+  // OPTIONAL entry-year cohort this row targets — free text, because the
+  // groupings change between terms (e.g. "ورودی ۴۰۲ و ماقبل", "ورودی ۴۰۳ و ۴۰۴").
+  // null = applies to everyone.
+  cohort String?
+
+  // The event day. We store a REAL calendar date (not the free text "۱۴ بهمن"):
+  // staff pick it with a Jalali date-picker in the admin and we convert
+  // Jalali → Gregorian on save. Storing an absolute date is what lets us COMPUTE
+  // the status (past / current / upcoming) and a countdown automatically.
+  // @db.Date keeps it date-only, so a server timezone can never shift it a day.
+  startDate DateTime @db.Date
+
+  // For multi-day entries — a range (the exam period) or two consecutive days
+  // (حذف تکدرس on ۱۷ & ۱۸). null = a single-day event.
+  endDate DateTime? @db.Date
+
+  // Optional longer explanation shown when a card is expanded.
+  description String?
+
+  // Tie-breaker for ordering rows that fall on the same date.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // We almost always fetch events by their semester, so index that column.
+  @@index([semesterId])
+  @@map("calendar_events")
+}
