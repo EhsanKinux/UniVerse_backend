@@ -41,6 +41,21 @@ class EnvironmentVariables {
   @IsNotEmpty()
   JWT_REFRESH_EXPIRES_IN!: string;
 
+  // ----- Admin panel (the /admin calendar editor) -----
+  // A single shared login (no per-user roles) protects the staff editor.
+  @IsString()
+  @IsNotEmpty()
+  ADMIN_USERNAME!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  ADMIN_PASSWORD!: string;
+
+  // Secret used to sign the admin session cookie — use a long random value.
+  @IsString()
+  @IsNotEmpty()
+  SESSION_SECRET!: string;
+
   @IsOptional()
   @IsString()
   CORS_ORIGIN?: string;
