@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{title}} — مدیریت تقویم آموزشی</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+  {{#if datepicker}}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css" />
+  {{/if}}
+  <style>
+    :root{
+      --bg:#f4f5f7;--card:#fff;--ink:#1f2430;--muted:#6b7280;--line:#e5e7eb;
+      --brand:#2563eb;--danger:#dc2626;--radius:14px;
+    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:Vazirmatn,Tahoma,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;}
+    a{color:var(--brand);text-decoration:none;}
+    .topbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-bottom:1px solid var(--line);padding:14px 22px;position:sticky;top:0;z-index:5;}
+    .brand{font-weight:700;font-size:17px;}
+    .container{max-width:980px;margin:24px auto;padding:0 16px;}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+    .card h2{margin:0 0 14px;font-size:16px;}
+    .muted{color:var(--muted);}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted);}
+    input[type=text],input[type=password],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:inherit;}
+    input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--brand) 35%,transparent);border-color:var(--brand);}
+    .field{flex:1 1 200px;margin-bottom:14px;}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:10px;border:1px solid transparent;font:inherit;font-weight:600;cursor:pointer;background:var(--brand);color:#fff;}
+    .btn:hover{filter:brightness(.95);}
+    .btn-ghost{background:transparent;border-color:var(--line);color:var(--ink);}
+    .btn-danger{background:transparent;border-color:#f1c4c4;color:var(--danger);}
+    .btn-sm{padding:6px 10px;font-size:13px;}
+    table{width:100%;border-collapse:collapse;}
+    th,td{text-align:right;padding:11px 10px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+    th{color:var(--muted);font-weight:600;font-size:13px;}
+    tr:last-child td{border-bottom:none;}
+    .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;}
+    .badge.past{background:#f3f4f6;color:#6b7280;}
+    .badge.current{background:#dcfce7;color:#15803d;}
+    .badge.upcoming{background:#dbeafe;color:#1d4ed8;}
+    .pill{display:inline-block;padding:2px 8px;border-radius:8px;background:#f3f4f6;font-size:12px;color:#374151;}
+    .alert{padding:11px 14px;border-radius:10px;margin-bottom:16px;font-size:14px;}
+    .alert-error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;}
+    .actions{display:flex;gap:8px;align-items:center;}
+    .inline{display:inline;}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+    .sem-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+    .sem-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+    .sem-item.active{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 6%,#fff);}
+    .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .login-card{width:100%;max-width:360px;margin:0;}
+    .empty{text-align:center;color:var(--muted);padding:30px 0;}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px;}
+  </style>
+</head>
+<body>
+  {{#if nav}}
+  <header class="topbar">
+    <div class="brand">📅 مدیریت تقویم آموزشی</div>
+    <form method="post" action="/admin/logout" class="inline">
+      <button type="submit" class="btn btn-ghost btn-sm">خروج</button>
+    </form>
+  </header>
+  {{/if}}

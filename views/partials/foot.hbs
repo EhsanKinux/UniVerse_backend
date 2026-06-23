@@ -1,0 +1,14 @@
+  {{#if datepicker}}
+  <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.jalaliDatepicker) {
+        // persianDigits:false → the field's value stays as "1404/12/02" (ASCII),
+        // which is what the server parses. time:false → date only.
+        jalaliDatepicker.startWatch({ time: false, persianDigits: false, autoHide: true });
+      }
+    });
+  </script>
+  {{/if}}
+</body>
+</html>

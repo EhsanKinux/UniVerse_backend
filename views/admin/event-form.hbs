@@ -1,0 +1,63 @@
+{{> head}}
+<div class="container">
+  <div class="toolbar">
+    <h2 style="margin:0">
+      {{#if isEdit}}ویرایش رویداد{{else}}رویداد جدید{{/if}}
+      {{#if semesterTitle}}<span class="muted">— {{semesterTitle}}</span>{{/if}}
+    </h2>
+    <a class="btn btn-ghost btn-sm" href="/admin{{#if backTo}}?semester={{backTo}}{{/if}}">بازگشت</a>
+  </div>
+
+  <div class="card">
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+    <form method="post" action="{{action}}">
+      <div class="row">
+        <div class="field" style="flex:2 1 260px">
+          <label for="title">عنوان رویداد *</label>
+          <input type="text" id="title" name="title" value="{{event.title}}" placeholder="مثلاً: شروع کلاس‌ها" required />
+        </div>
+        <div class="field" style="flex:1 1 180px">
+          <label for="category">دسته *</label>
+          <select id="category" name="category" required>
+            {{#each categoryOptions}}
+            <option value="{{value}}" {{#if (eq value ../event.category)}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1 1 100%">
+          <label for="cohort">ورودی / مخاطب (اختیاری)</label>
+          <input type="text" id="cohort" name="cohort" value="{{event.cohort}}" placeholder="مثلاً: ورودی ۴۰۲ و ماقبل" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1 1 180px">
+          <label for="startDate">تاریخ شروع *</label>
+          <input type="text" id="startDate" name="startDate" value="{{event.startDate}}" data-jdp placeholder="۱۴۰۴/۱۲/۰۲" autocomplete="off" required />
+          <div class="hint">برای انتخاب تاریخ، روی فیلد کلیک کنید.</div>
+        </div>
+        <div class="field" style="flex:1 1 180px">
+          <label for="endDate">تاریخ پایان (برای بازه‌ها — اختیاری)</label>
+          <input type="text" id="endDate" name="endDate" value="{{event.endDate}}" data-jdp placeholder="خالی = یک‌روزه" autocomplete="off" />
+          <div class="hint">رویداد یک‌روزه؟ این فیلد را خالی بگذارید.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1 1 100%">
+          <label for="description">توضیحات (اختیاری)</label>
+          <textarea id="description" name="description" rows="3" placeholder="جزئیات بیشتر…">{{event.description}}</textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn">{{#if isEdit}}ذخیره تغییرات{{else}}افزودن رویداد{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin{{#if backTo}}?semester={{backTo}}{{/if}}">انصراف</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{> foot}}

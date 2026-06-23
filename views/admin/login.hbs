@@ -1,0 +1,17 @@
+{{> head}}
+<div class="login-wrap">
+  <form method="post" action="/admin/login" class="card login-card">
+    <h2>ورود به پنل مدیریت</h2>
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+    <div class="field">
+      <label for="username">نام کاربری</label>
+      <input type="text" id="username" name="username" autocomplete="username" required autofocus />
+    </div>
+    <div class="field">
+      <label for="password">رمز عبور</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required />
+    </div>
+    <button type="submit" class="btn" style="width:100%;justify-content:center">ورود</button>
+  </form>
+</div>
+{{> foot}}
