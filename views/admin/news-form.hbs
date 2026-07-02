@@ -1,0 +1,47 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>{{#if isEdit}}ویرایش خبر{{else}}خبر جدید{{/if}}</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}">
+      <div class="row">
+        <div class="field" style="flex:0 1 220px">
+          <label>دسته</label>
+          <select name="category" required>
+            {{#each categoryOptions}}
+            <option value="{{value}}" {{#if (eq value ../news.category)}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <div class="field">
+          <label>عنوان</label>
+          <input type="text" name="title" value="{{news.title}}" placeholder="عنوان خبر یا اطلاعیه" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>متن خبر</label>
+        <textarea name="body" rows="4" placeholder="متن کامل اطلاعیه" required>{{news.body}}</textarea>
+      </div>
+
+      <div class="field">
+        <label>لینک «مشاهدهٔ بیشتر» (اختیاری)</label>
+        <input type="text" name="link" value="{{news.link}}" placeholder="https://…  یا  /calendar" />
+        <div class="hint">می‌تواند یک نشانی خارجی یا یک مسیر داخلی اپ باشد.</div>
+      </div>
+
+      <div class="row" style="gap:20px">
+        <label class="check"><input type="checkbox" name="pinned" {{#if news.pinned}}checked{{/if}} /> سنجاق به ابتدای فهرست</label>
+        <label class="check"><input type="checkbox" name="isPublished" {{#if news.isPublished}}checked{{/if}} /> منتشر شود (در اپ نمایش داده شود)</label>
+      </div>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">{{#if isEdit}}ذخیرهٔ تغییرات{{else}}ایجاد خبر{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin/news">انصراف</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{> foot}}

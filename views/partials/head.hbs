@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{{title}} — مدیریت تقویم آموزشی</title>
+  <title>{{title}} — پنل مدیریت</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
   {{#if datepicker}}
@@ -17,8 +17,14 @@
     *{box-sizing:border-box;}
     body{margin:0;font-family:Vazirmatn,Tahoma,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;}
     a{color:var(--brand);text-decoration:none;}
-    .topbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-bottom:1px solid var(--line);padding:14px 22px;position:sticky;top:0;z-index:5;}
-    .brand{font-weight:700;font-size:17px;}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--card);border-bottom:1px solid var(--line);padding:14px 22px;position:sticky;top:0;z-index:5;}
+    .brand{font-weight:700;font-size:17px;white-space:nowrap;}
+    .topnav{display:flex;gap:6px;flex-wrap:wrap;}
+    .navlink{padding:7px 13px;border-radius:9px;color:var(--muted);font-weight:600;font-size:14px;}
+    .navlink:hover{background:#f3f4f6;}
+    .navlink.active{background:color-mix(in srgb,var(--brand) 10%,#fff);color:var(--brand);}
+    .check{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px;margin:0;}
+    .check input{width:auto;}
     .container{max-width:980px;margin:24px auto;padding:0 16px;}
     .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
     .card h2{margin:0 0 14px;font-size:16px;}
@@ -59,7 +65,12 @@
 <body>
   {{#if nav}}
   <header class="topbar">
-    <div class="brand">📅 مدیریت تقویم آموزشی</div>
+    <div class="brand">🎛️ پنل مدیریت</div>
+    <nav class="topnav">
+      <a href="/admin" class="navlink {{#if (eq activeNav 'calendar')}}active{{/if}}">تقویم آموزشی</a>
+      <a href="/admin/news" class="navlink {{#if (eq activeNav 'news')}}active{{/if}}">اخبار</a>
+      <a href="/admin/documents" class="navlink {{#if (eq activeNav 'documents')}}active{{/if}}">اسناد و فایل‌ها</a>
+    </nav>
     <form method="post" action="/admin/logout" class="inline">
       <button type="submit" class="btn btn-ghost btn-sm">خروج</button>
     </form>

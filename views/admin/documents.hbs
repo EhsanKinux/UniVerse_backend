@@ -1,0 +1,102 @@
+{{> head}}
+<div class="container">
+
+  {{#if error}}
+  <div class="alert alert-error">{{error}}</div>
+  {{/if}}
+
+  <div class="card">
+    <h2>بارگذاری سند جدید</h2>
+    <p class="muted">یک فایل PDF را برای یکی از صفحات انتخاب کنید. هر دسته یک «نسخهٔ فعال» دارد که به دانشجویان نمایش داده می‌شود؛ نسخه‌های قبلی در بایگانی باقی می‌مانند.</p>
+    <form method="post" action="/admin/documents" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field">
+          <label>دسته (صفحه)</label>
+          <select name="category" required>
+            {{#each categoryOptions}}
+            <option value="{{value}}" {{#if (eq value ../form.category)}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <div class="field">
+          <label>عنوان نمایشی</label>
+          <input type="text" name="title" value="{{form.title}}" placeholder="مثلاً: دروس ارائه‌شده نیمسال دوم ۱۴۰۴-۱۴۰۵" required />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>فایل PDF</label>
+          <input type="file" name="file" accept="application/pdf" required />
+          <div class="hint">حداکثر ۲۰ مگابایت، فقط PDF.</div>
+        </div>
+        <div class="field" style="flex:0 1 180px">
+          <label>تعداد صفحات (اختیاری)</label>
+          <input type="text" name="pageCount" value="{{form.pageCount}}" inputmode="numeric" placeholder="۸۱" />
+        </div>
+      </div>
+      <div class="field">
+        <label>توضیح (اختیاری)</label>
+        <input type="text" name="description" value="{{form.description}}" placeholder="مثلاً: برگرفته از سامانهٔ گلستان" />
+      </div>
+      <label class="check">
+        <input type="checkbox" name="makeActive" checked />
+        این فایل بلافاصله به‌عنوان نسخهٔ فعال نمایش داده شود
+      </label>
+      <div style="margin-top:16px">
+        <button class="btn" type="submit">بارگذاری</button>
+      </div>
+    </form>
+  </div>
+
+  {{#each categories}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">{{label}}</h2>
+      <span class="muted">{{documents.length}} فایل</span>
+    </div>
+    {{#if documents.length}}
+    <table>
+      <thead>
+        <tr><th>عنوان</th><th>فایل</th><th>حجم</th><th>به‌روزرسانی</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{#each documents}}
+        <tr>
+          <td>
+            <strong>{{title}}</strong>
+            {{#if description}}<div class="muted" style="font-size:12px">{{description}}</div>{{/if}}
+          </td>
+          <td>
+            <a href="/documents/file/{{id}}" target="_blank" rel="noopener">{{originalName}}</a>
+            {{#if pageCount}}<span class="muted"> · {{pageCount}} ص</span>{{/if}}
+          </td>
+          <td class="muted">{{sizeLabel}}</td>
+          <td class="muted">{{updatedAtLabel}}</td>
+          <td>
+            {{#if isActive}}<span class="badge current">فعال</span>{{else}}<span class="badge past">بایگانی</span>{{/if}}
+          </td>
+          <td>
+            <div class="actions">
+              <a class="btn btn-ghost btn-sm" href="/documents/file/{{id}}" target="_blank" rel="noopener">مشاهده</a>
+              {{#unless isActive}}
+              <form method="post" action="/admin/documents/{{id}}/activate" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">فعال‌سازی</button>
+              </form>
+              {{/unless}}
+              <form method="post" action="/admin/documents/{{id}}/delete" class="inline"
+                    onsubmit="return confirm('حذف این فایل؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز فایلی برای این دسته بارگذاری نشده است.</div>
+    {{/if}}
+  </div>
+  {{/each}}
+</div>
+{{> foot}}
