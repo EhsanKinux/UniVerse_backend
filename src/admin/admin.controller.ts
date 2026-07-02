@@ -114,6 +114,7 @@ export class AdminController {
       res.render('admin/dashboard', {
         title: 'داشبورد',
         nav: true,
+        activeNav: 'calendar',
         hasSemesters: false,
         semesters: [],
       });
@@ -130,6 +131,7 @@ export class AdminController {
     res.render('admin/dashboard', {
       title: 'داشبورد',
       nav: true,
+      activeNav: 'calendar',
       hasSemesters: true,
       semesters: semesters.map((s) => ({
         id: s.id,
@@ -314,6 +316,7 @@ export class AdminController {
     return {
       title: params.mode === 'create' ? 'رویداد جدید' : 'ویرایش رویداد',
       nav: true,
+      activeNav: 'calendar',
       datepicker: true,
       isEdit: params.mode === 'edit',
       action: params.action,
