@@ -59,6 +59,35 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   CORS_ORIGIN?: string;
+
+  // ----- File uploads (the /admin documents library) -----
+  // Folder where uploaded files are stored on disk (default "uploads", relative
+  // to the project root) and the per-file size cap in MB (default 20). Both are
+  // optional — sensible defaults apply when unset.
+  @IsOptional()
+  @IsString()
+  UPLOAD_DIR?: string;
+
+  @IsOptional()
+  @IsNumber()
+  MAX_UPLOAD_MB?: number;
+
+  // ----- Web Push (VAPID) -----
+  // Keys that sign browser push messages. All optional: if unset, OS push is
+  // simply disabled (the in-app SSE notifications still work). Generate a pair
+  // with:  node -e "console.log(require('web-push').generateVAPIDKeys())"
+  @IsOptional()
+  @IsString()
+  VAPID_PUBLIC_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  VAPID_PRIVATE_KEY?: string;
+
+  // Contact URI required by the Web Push spec, e.g. "mailto:admin@example.com".
+  @IsOptional()
+  @IsString()
+  VAPID_SUBJECT?: string;
 }
 
 /**

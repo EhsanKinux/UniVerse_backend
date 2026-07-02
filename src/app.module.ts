@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { validateEnv } from './config/env.validation';
+import { DocumentsModule } from './documents/documents.module';
+import { NewsModule } from './news/news.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { PushModule } from './push/push.module';
+import { WeeklyScheduleModule } from './schedule/schedule.module';
 import { UsersModule } from './users/users.module';
 
 /**
@@ -22,10 +27,16 @@ import { UsersModule } from './users/users.module';
       isGlobal: true,
       validate: validateEnv,
     }),
+    // Enables @Cron() decorators app-wide (the class-reminder job uses one).
+    ScheduleModule.forRoot(),
     PrismaModule, // database access (global)
     UsersModule, // user records
     AuthModule, // register / login / refresh / logout / me
     CalendarModule, // academic calendar: public read API
+    DocumentsModule, // staff-managed files (e.g. the courses PDF): public read API
+    NewsModule, // news/announcements: public read API + real-time SSE stream
+    PushModule, // Web Push (OS notifications): VAPID + subscriptions
+    WeeklyScheduleModule, // برنامه هفتگی: per-student timetable + class reminders
     AdminModule, // server-rendered staff panel at /admin
   ],
   controllers: [AppController],
