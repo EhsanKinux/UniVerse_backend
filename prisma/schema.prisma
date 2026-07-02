@@ -50,9 +50,116 @@ model User {
   createdAt DateTime @default(now()) // set once, when the row is created
   updatedAt DateTime @updatedAt // updated every time the row changes
 
+  // ---- Relations to per-student features ----
+  courses           Course[] // the user's weekly-schedule courses
+  scheduleSettings  ScheduleSettings? // reminder + week-parity preferences
+  pushSubscriptions PushSubscription[] // devices this user is logged in on
+
   // Store this model in a table literally named "users" (lowercase plural is a
   // common SQL convention), rather than the default "User".
   @@map("users")
+}
+
+// =============================================================================
+// WEEKLY SCHEDULE (برنامه هفتگی)
+// Each student builds their own class timetable in the PWA. A Course is the
+// subject itself (name / professor / colour); its CourseSessions are the actual
+// weekly meetings (e.g. ساختمان داده on Saturday AND Monday = one course, two
+// sessions). Splitting them keeps the course's colour and name consistent
+// everywhere and lets the reminder job target individual meetings.
+// =============================================================================
+
+model Course {
+  id String @id @default(cuid())
+
+  // The owning student. Cascade = deleting a user removes their schedule too.
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The course name in Persian, e.g. «ساختمان داده‌ها».
+  name String
+
+  // Optional professor name, e.g. «دکتر رضایی».
+  professor String?
+
+  // A palette slug (e.g. "teal", "violet") the PWA maps to Tailwind classes.
+  // Validated in the DTO against a known set — plain string so adding a colour
+  // later needs NO migration.
+  color String @default("teal")
+
+  // The weekly meetings of this course. Cascade is declared on the session side,
+  // so deleting a course removes its sessions.
+  sessions CourseSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // We always fetch courses by their owner, so index that column.
+  @@index([userId])
+  @@map("courses")
+}
+
+// One weekly meeting of a course, e.g. "Saturday 10:00–11:30 in کلاس ۲۰۴".
+model CourseSession {
+  id String @id @default(cuid())
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  // Day of the university week: 0 = شنبه … 5 = پنجشنبه. (Friday has no classes,
+  // so 6 is never stored; the DTO validates the range.)
+  dayOfWeek Int
+
+  // Class times as MINUTES from midnight, Tehran local time (e.g. 10:00 → 600).
+  // Storing integers (not "10:00" strings) makes the reminder job's time math
+  // and overlap/ordering comparisons trivial. The API converts to "HH:mm".
+  startMinute Int
+  endMinute   Int
+
+  // Optional location, e.g. «کلاس ۲۰۴» or «آز. نرم‌افزار».
+  room String?
+
+  // Session kind: "theory" (نظری) | "practical" (عملی). Plain string validated
+  // in the DTO, so a future kind needs no migration.
+  type String @default("theory")
+
+  // Week parity: "all" = every week, "odd" = فرد only, "even" = زوج only.
+  // Many courses meet on alternating weeks in Iranian universities.
+  parity String @default("all")
+
+  // The reminder job looks up "today's sessions" constantly, so index the day
+  // together with the course.
+  @@index([courseId])
+  @@index([dayOfWeek])
+  @@map("course_sessions")
+}
+
+// Per-student preferences for the weekly schedule. Kept OUT of the User model so
+// auth stays lean and future schedule options land here without touching users.
+model ScheduleSettings {
+  id String @id @default(cuid())
+
+  // One row per user (@unique turns this 1-N relation into 1-1).
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Master switch for class push reminders.
+  remindersEnabled Boolean @default(true)
+
+  // How many minutes before class start the reminder fires (e.g. 30).
+  reminderLeadMinutes Int @default(30)
+
+  // Week-parity reference: the date of a SATURDAY that starts an ODD (فرد) week.
+  // Parity of any later week = weeks-elapsed since this date, mod 2. The student
+  // sets it by simply telling us "this week is فرد/زوج" — the API converts that
+  // to the right Saturday. null = parity untracked (all sessions treated as due).
+  // @db.Date keeps it date-only so timezones can never shift it.
+  oddWeekAnchor DateTime? @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("schedule_settings")
 }
 
 // =============================================================================
@@ -132,4 +239,144 @@ model CalendarEvent {
   // We almost always fetch events by their semester, so index that column.
   @@index([semesterId])
   @@map("calendar_events")
+}
+
+// =============================================================================
+// DOCUMENTS (اسناد و فایل‌ها)
+// A small, GENERIC file-library feature. University staff upload a file (e.g. the
+// Golestan «دروس ارائه‌شده» PDF) from the /admin panel; students view or download
+// it on the PWA — no code changes per term. Files are grouped by a "category"
+// slug (e.g. "courses"); within each category exactly one row is marked active
+// (the one students see) and the rest form a browsable archive.
+//
+// The file BYTES live on disk (in the uploads/ folder); only this lightweight
+// METADATA row lives in the database. Stuffing big binaries into Postgres bloats
+// backups and memory, so the standard pattern is "files on disk, metadata in DB".
+// =============================================================================
+model Document {
+  id String @id @default(cuid())
+
+  // Which page/feature this file belongs to. A free-text slug (validated in the
+  // DTO against a known set) rather than a Prisma enum, so adding a new category
+  // later needs NO migration. Known values: courses | chart | forms ...
+  category String
+
+  // The Persian title shown to students, e.g. «دروس ارائه‌شده نیمسال دوم ۱۴۰۴-۱۴۰۵».
+  title String
+
+  // Optional smaller note shown under the title (e.g. a source or date line).
+  description String?
+
+  // ---- File metadata ----
+
+  // The name we saved the file under on disk (a random cuid + extension). We
+  // never reuse the user's original name for the on-disk path — it could collide
+  // with another upload or contain unsafe path characters.
+  storedName String
+
+  // The original name the staff member's file had, e.g. "download.pdf". Shown in
+  // the UI and used as the suggested filename when a student downloads it.
+  originalName String
+
+  // The file's MIME type, e.g. "application/pdf"; lets the download endpoint send
+  // the correct Content-Type header.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is ~20MB). Shown formatted.
+  size Int
+
+  // OPTIONAL page count, typed by staff at upload (e.g. 81). We deliberately do
+  // NOT parse the PDF on the server (fragile + an extra dependency); a manual
+  // number is simpler and gives a nice «۸۱ صفحه» label. null = unknown.
+  pageCount Int?
+
+  // Only ONE document per category is active at a time. Enforced in code
+  // (activating one deactivates the others IN THE SAME CATEGORY), because SQL
+  // can't easily express "at most one true row per category".
+  isActive Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // We always fetch documents by their category, so index that column.
+  @@index([category])
+  @@map("documents")
+}
+
+// =============================================================================
+// NEWS / ANNOUNCEMENTS (اخبار و اطلاعیه‌ها)
+// Staff post these from /admin; the PWA shows them in the home-page carousel AND
+// pushes new ones to every open client in real time over SSE (Server-Sent
+// Events) — see NewsService.stream(). No per-term code changes.
+// =============================================================================
+model News {
+  id String @id @default(cuid())
+
+  // The headline shown on the card.
+  title String
+
+  // A coarse category that drives the badge (and future filtering). Plain string,
+  // validated in the DTO against a known set, so adding one needs no migration.
+  // Known values: academic | services | student | general
+  category String
+
+  // The announcement text — the card's body / description.
+  body String
+
+  // OPTIONAL "read more" URL (an internal route or an external link). null = none.
+  link String?
+
+  // Drafts (isPublished=false) are hidden from the public API; pinned items sort
+  // ahead of the rest in the carousel.
+  isPublished Boolean @default(true)
+  pinned      Boolean @default(false)
+
+  // When the item counts as "published" — the date shown on the card. Defaults to
+  // creation time, but kept SEPARATE from createdAt so it can be back/post-dated
+  // later without muddling the audit timestamps.
+  publishedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by pinned + publishedAt.
+  @@index([isPublished, pinned, publishedAt])
+  @@map("news")
+}
+
+// =============================================================================
+// WEB PUSH SUBSCRIPTIONS
+// One row per browser/device that opted in to OS push notifications. The PWA
+// registers its PushSubscription here; PushService encrypts and sends to every
+// row when news is published, and prunes any the push service reports as gone.
+// =============================================================================
+model PushSubscription {
+  id String @id @default(cuid())
+
+  // OPTIONAL owner. Set when the subscribe request carried a valid access token
+  // (the PWA re-registers on every open, so this tracks the CURRENT login on the
+  // device). null = an anonymous device that only gets broadcast news pushes.
+  // Personal notifications (class reminders) go only to a user's own devices.
+  // SetNull (not Cascade): deleting a user detaches the device, keeps news push.
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // The push-service URL the browser gave us. @unique so re-subscribing the same
+  // device UPSERTS this row instead of creating a duplicate.
+  endpoint String @unique
+
+  // The browser's public key + auth secret from its PushSubscription. We need
+  // both to encrypt the payload so only that browser can decrypt it.
+  p256dh String
+  auth   String
+
+  // Optional — which browser/device this is, handy when debugging.
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The reminder job fetches a user's devices, so index the owner column.
+  @@index([userId])
+  @@map("push_subscriptions")
 }
