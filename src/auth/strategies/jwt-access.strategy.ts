@@ -17,7 +17,10 @@ import { AuthenticatedUser, JwtPayload } from '../types/jwt-payload.type';
  * The 'jwt-access' name is what JwtAccessGuard references.
  */
 @Injectable()
-export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') {
+export class JwtAccessStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-access',
+) {
   constructor(
     configService: ConfigService,
     private readonly usersService: UsersService,

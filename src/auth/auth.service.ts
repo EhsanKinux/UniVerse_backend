@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -72,7 +73,10 @@ export class AuthService {
    * Exchange a valid refresh token for a brand-new token pair (token rotation).
    * `userId` + `refreshToken` come from the JwtRefreshStrategy via the controller.
    */
-  async refresh(userId: string, refreshToken: string): Promise<AuthResponseDto> {
+  async refresh(
+    userId: string,
+    refreshToken: string,
+  ): Promise<AuthResponseDto> {
     const user = await this.usersService.findById(userId);
 
     // If the user is gone, or has logged out (hashedRefreshToken cleared), deny.
@@ -101,6 +105,33 @@ export class AuthService {
   /** Revoke the refresh token so it can no longer be used. */
   async logout(userId: string): Promise<{ success: boolean }> {
     await this.usersService.setRefreshToken(userId, null);
+    return { success: true };
+  }
+
+  /**
+   * Permanently delete the caller's account after confirming their password.
+   *
+   * We throw 403 (not 401) for a wrong password on purpose: a 401 here would be
+   * swallowed by the PWA's silent-refresh interceptor (and shown as "session
+   * expired"), whereas 403 surfaces the real "wrong password" message. The
+   * actual teardown (DB cascade + avatar file) lives in UsersService.purgeAndDelete,
+   * shared with staff deletion in the admin panel.
+   */
+  async deleteAccount(
+    userId: string,
+    password: string,
+  ): Promise<{ success: boolean }> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      throw new ForbiddenException('رمز عبور نادرست است.');
+    }
+
+    await this.usersService.purgeAndDelete(userId);
     return { success: true };
   }
 
