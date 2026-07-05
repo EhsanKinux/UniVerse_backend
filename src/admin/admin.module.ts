@@ -2,13 +2,17 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
 import { CalendarModule } from '../calendar/calendar.module';
+import { ChartModule } from '../chart/chart.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { createMulterOptions } from '../documents/upload.config';
 import { NewsModule } from '../news/news.module';
+import { UsersModule } from '../users/users.module';
 import { AdminAuthFilter } from './admin-auth.filter';
 import { AdminController } from './admin.controller';
+import { AdminChartController } from './admin-chart.controller';
 import { AdminDocumentsController } from './admin-documents.controller';
 import { AdminNewsController } from './admin-news.controller';
+import { AdminUsersController } from './admin-users.controller';
 import { AdminGuard } from './admin.guard';
 
 /**
@@ -24,14 +28,22 @@ import { AdminGuard } from './admin.guard';
 @Module({
   imports: [
     CalendarModule,
+    ChartModule,
     DocumentsModule,
     NewsModule,
+    UsersModule,
     MulterModule.registerAsync({
       inject: [ConfigService],
       useFactory: createMulterOptions,
     }),
   ],
-  controllers: [AdminController, AdminDocumentsController, AdminNewsController],
+  controllers: [
+    AdminController,
+    AdminChartController,
+    AdminDocumentsController,
+    AdminNewsController,
+    AdminUsersController,
+  ],
   providers: [AdminGuard, AdminAuthFilter],
 })
 export class AdminModule {}
