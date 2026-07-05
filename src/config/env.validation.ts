@@ -94,7 +94,9 @@ class EnvironmentVariables {
  * Called by ConfigModule with the raw process.env object. Returns the validated
  * (and type-converted) config, or throws to stop startup.
  */
-export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
+export function validateEnv(
+  config: Record<string, unknown>,
+): EnvironmentVariables {
   const validatedConfig = plainToInstance(EnvironmentVariables, config, {
     // Converts strings from .env (e.g. "3001") into the declared type (number).
     enableImplicitConversion: true,
