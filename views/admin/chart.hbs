@@ -1,0 +1,45 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">چارت آموزشی — رشته‌ها</h2>
+      <a class="btn btn-sm" href="/admin/chart/new">+ رشتهٔ جدید</a>
+    </div>
+    <p class="muted">هر رشته می‌تواند چند فایل چارت (PDF) داشته باشد. برای افزودن یا حذف فایل‌های یک رشته، «ویرایش» را بزنید.</p>
+
+    {{#if hasItems}}
+    <table>
+      <thead>
+        <tr><th>رشته</th><th>شناسه</th><th>تعداد چارت</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+        <tr>
+          <td><strong>{{icon}} {{title}}</strong></td>
+          <td class="muted" dir="ltr" style="text-align:right">{{slug}}</td>
+          <td class="muted">{{fileCount}} فایل</td>
+          <td>
+            {{#if isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">پنهان</span>{{/if}}
+          </td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/admin/chart/{{id}}/toggle" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">{{#if isPublished}}پنهان‌سازی{{else}}نمایش{{/if}}</button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href="/admin/chart/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/chart/{{id}}/delete" class="inline"
+                    onsubmit="return confirm('حذف این رشته و همهٔ چارت‌های آن؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز رشته‌ای ثبت نشده است. برای شروع، «رشتهٔ جدید» را بزنید.</div>
+    {{/if}}
+  </div>
+</div>
+{{> foot}}

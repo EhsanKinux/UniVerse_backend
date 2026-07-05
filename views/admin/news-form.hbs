@@ -5,7 +5,7 @@
 
     {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
 
-    <form method="post" action="{{action}}">
+    <form method="post" action="{{action}}" enctype="multipart/form-data">
       <div class="row">
         <div class="field" style="flex:0 1 220px">
           <label>دسته</label>
@@ -23,7 +23,24 @@
 
       <div class="field">
         <label>متن خبر</label>
-        <textarea name="body" rows="4" placeholder="متن کامل اطلاعیه" required>{{news.body}}</textarea>
+        <textarea name="body" rows="6" placeholder="متن کامل اطلاعیه. از Markdown پشتیبانی می‌شود: **پررنگ**، فهرست با - ، [لینک](https://…)" required>{{news.body}}</textarea>
+        <div class="hint">قالب‌بندی Markdown پشتیبانی می‌شود (پاراگراف، پررنگ، فهرست، لینک).</div>
+      </div>
+
+      <div class="field">
+        <label>تصویر شاخص (اختیاری)</label>
+        <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <div class="hint">
+          یک عکس (PNG، JPG، WebP، GIF)، حداکثر ۲۰ مگابایت.
+          {{#if news.hasCover}}<strong>یک تصویر شاخص هم‌اکنون تنظیم شده است؛ آپلود عکس جدید آن را جایگزین می‌کند.</strong>{{/if}}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>فایل‌های پیوست (اختیاری)</label>
+        <input type="file" name="files" multiple
+               accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
+        <div class="hint">می‌توانید چند فایل انتخاب کنید (PDF، عکس، Word/Excel/PowerPoint). فایل‌های جدید به پیوست‌های فعلی افزوده می‌شوند.</div>
       </div>
 
       <div class="field">
@@ -43,5 +60,48 @@
       </div>
     </form>
   </div>
+
+  {{!-- Managing existing files lives OUTSIDE the main form (nested forms are invalid HTML). --}}
+  {{#if isEdit}}
+  <div class="card">
+    <h2 style="margin-top:0">فایل‌های فعلی</h2>
+
+    <h3>تصویر شاخص</h3>
+    {{#if news.hasCover}}
+    <div class="row" style="align-items:center;gap:12px">
+      <a href="/news/{{news.id}}/cover" target="_blank" rel="noopener">مشاهدهٔ تصویر شاخص</a>
+      <form method="post" action="/admin/news/{{news.id}}/cover/delete" class="inline"
+            onsubmit="return confirm('حذف تصویر شاخص؟');">
+        <button class="btn btn-danger btn-sm" type="submit">حذف تصویر</button>
+      </form>
+    </div>
+    {{else}}
+    <p class="muted">تصویری تنظیم نشده است.</p>
+    {{/if}}
+
+    <h3 style="margin-top:18px">پیوست‌ها</h3>
+    {{#if news.attachments.length}}
+    <table>
+      <thead><tr><th>فایل</th><th>حجم</th><th></th></tr></thead>
+      <tbody>
+        {{#each news.attachments}}
+        <tr>
+          <td><a href="/news/file/{{this.id}}" target="_blank" rel="noopener">{{this.originalName}}</a></td>
+          <td class="muted">{{this.sizeLabel}}</td>
+          <td>
+            <form method="post" action="/admin/news/{{../news.id}}/attachments/{{this.id}}/delete" class="inline"
+                  onsubmit="return confirm('حذف این پیوست؟');">
+              <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+            </form>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="muted">هیچ پیوستی افزوده نشده است.</p>
+    {{/if}}
+  </div>
+  {{/if}}
 </div>
 {{> foot}}

@@ -1,0 +1,112 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>{{#if isEdit}}ویرایش رشته{{else}}رشتهٔ جدید{{/if}}</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}">
+      <div class="row">
+        <div class="field">
+          <label>نام رشته</label>
+          <input type="text" name="title" value="{{department.title}}" placeholder="مثلاً: مهندسی کامپیوتر" required />
+        </div>
+        <div class="field" style="flex:0 1 180px">
+          <label>شناسه (اسلاگ)</label>
+          <input type="text" name="slug" value="{{department.slug}}" dir="ltr" placeholder="computer" required />
+          <div class="hint">فقط حروف کوچک انگلیسی، عدد و خط تیره. تعیین‌کنندهٔ رنگ در اپ.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:0 1 120px">
+          <label>آیکون (اموجی)</label>
+          <input type="text" name="icon" value="{{department.icon}}" placeholder="💻" />
+        </div>
+        <div class="field" style="flex:0 1 220px">
+          <label>رنگ</label>
+          <select name="color">
+            {{#each colorOptions}}
+            <option value="{{value}}" {{#if (eq value ../department.color)}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <div class="field" style="flex:0 1 120px">
+          <label>ترتیب نمایش</label>
+          <input type="text" name="sortOrder" value="{{department.sortOrder}}" inputmode="numeric" placeholder="0" />
+          <div class="hint">کوچک‌تر = بالاتر.</div>
+        </div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" name="isPublished" {{#if department.isPublished}}checked{{/if}} />
+        نمایش در اپ (در غیر این صورت پنهان می‌ماند)
+      </label>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">{{#if isEdit}}ذخیرهٔ تغییرات{{else}}ایجاد رشته{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin/chart">انصراف</a>
+      </div>
+    </form>
+  </div>
+
+  {{!-- Managing a department's chart PDFs lives OUTSIDE the main form (nested forms
+        are invalid HTML), and only once the department exists. --}}
+  {{#if isEdit}}
+  <div class="card">
+    <h2 style="margin-top:0">افزودن چارت (PDF)</h2>
+    <form method="post" action="/admin/chart/{{department.id}}/files" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field">
+          <label>عنوان چارت</label>
+          <input type="text" name="title" value="{{fileForm.title}}" placeholder="مثلاً: کارشناسی مهندسی نرم‌افزار قبل ۱۴۰۳" required />
+        </div>
+        <div class="field" style="flex:0 1 200px">
+          <label>برچسب (اختیاری)</label>
+          <input type="text" name="badge" value="{{fileForm.badge}}" placeholder="مثلاً: قبل ۱۴۰۳" />
+        </div>
+      </div>
+      <div class="field">
+        <label>فایل PDF</label>
+        <input type="file" name="file" accept="application/pdf" required />
+        <div class="hint">حداکثر ۲۰ مگابایت، فقط PDF. برای هر چارت، یک فایل جداگانه اضافه کنید.</div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn" type="submit">افزودن چارت</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">چارت‌های فعلی</h2>
+    {{#if department.files.length}}
+    <table>
+      <thead><tr><th>عنوان</th><th>برچسب</th><th>حجم</th><th></th></tr></thead>
+      <tbody>
+        {{#each department.files}}
+        <tr>
+          <td>
+            <a href="/chart/file/{{this.id}}" target="_blank" rel="noopener">{{this.title}}</a>
+          </td>
+          <td class="muted">{{#if this.badge}}{{this.badge}}{{else}}—{{/if}}</td>
+          <td class="muted">{{this.sizeLabel}}</td>
+          <td>
+            <div class="actions">
+              <a class="btn btn-ghost btn-sm" href="/chart/file/{{this.id}}" target="_blank" rel="noopener">مشاهده</a>
+              <form method="post" action="/admin/chart/{{../department.id}}/files/{{this.id}}/delete" class="inline"
+                    onsubmit="return confirm('حذف این چارت؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="muted">هنوز چارتی برای این رشته افزوده نشده است.</p>
+    {{/if}}
+  </div>
+  {{/if}}
+</div>
+{{> foot}}

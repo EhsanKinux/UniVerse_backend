@@ -1,0 +1,67 @@
+{{> head}}
+<div class="container">
+  {{#if notFound}}
+  <div class="card"><div class="empty">کاربر یافت نشد. <a href="/admin/users">بازگشت به فهرست</a></div></div>
+  {{else}}
+
+  <div style="margin-bottom:14px"><a href="/admin/users" class="muted" style="font-size:14px">→ بازگشت به فهرست کاربران</a></div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      {{#if user.avatarUrl}}
+      <img src="{{user.avatarUrl}}" alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:1px solid var(--line)" />
+      {{else}}
+      <span style="width:72px;height:72px;border-radius:50%;background:#eef2ff;color:#4f46e5;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:26px">{{user.name.[0]}}</span>
+      {{/if}}
+      <div style="min-width:0;flex:1">
+        <div style="font-size:19px;font-weight:700">{{user.name}}</div>
+        <div class="muted" dir="ltr" style="text-align:right">{{user.email}}</div>
+        <div class="muted" style="font-size:13px;margin-top:2px">عضویت: {{user.joined}}</div>
+      </div>
+      <div style="text-align:center;min-width:120px">
+        <div style="font-size:26px;font-weight:800;color:var(--brand)">٪{{completion.percent}}</div>
+        <div class="muted" style="font-size:12px">{{completion.score}} از {{completion.maxScore}} امتیاز</div>
+        <span class="badge current" style="margin-top:6px">{{completion.level.label}}</span>
+      </div>
+    </div>
+    <div style="margin-top:14px;height:8px;background:#eef2f7;border-radius:999px;overflow:hidden">
+      <span style="display:block;height:100%;width:{{completion.percent}}%;background:var(--brand);border-radius:999px"></span>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:flex-end">
+      <form method="post" action="/admin/users/{{user.id}}/delete" class="inline"
+            onsubmit="return confirm('حذف کامل این کاربر و همه اطلاعاتش؟ این عمل قابل بازگشت نیست.');">
+        <button class="btn btn-danger btn-sm" type="submit">حذف کاربر</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>اطلاعات فردی</h2>
+    <table>
+      {{#each personal}}
+      <tr><th style="width:180px">{{label}}</th><td class="{{#if empty}}muted{{/if}}">{{value}}</td></tr>
+      {{/each}}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>اطلاعات تحصیلی</h2>
+    <table>
+      {{#each academic}}
+      <tr><th style="width:180px">{{label}}</th><td class="{{#if empty}}muted{{/if}}">{{value}}</td></tr>
+      {{/each}}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>درباره و تماس اضطراری</h2>
+    <table>
+      {{#each extra}}
+      <tr><th style="width:180px">{{label}}</th><td class="{{#if empty}}muted{{/if}}">{{value}}</td></tr>
+      {{/each}}
+    </table>
+  </div>
+
+  {{/if}}
+</div>
+{{> foot}}
