@@ -42,6 +42,47 @@ export class NewsDto {
     description: 'Pre-formatted Persian date for the card.',
   })
   dateLabel!: string;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether this item has a cover image (stream it at /news/:id/cover).',
+  })
+  hasCover!: boolean;
+
+  @ApiProperty({
+    example: 2,
+    description: 'How many files are attached to this item.',
+  })
+  attachmentCount!: number;
+}
+
+/** One file attached to a news item, formatted for display. The client builds the
+ *  file URL from the id (GET /news/file/:id), mirroring the documents feature. */
+export class NewsAttachmentDto {
+  @ApiProperty({ example: 'clx0att1234' })
+  id!: string;
+
+  @ApiProperty({ example: 'بخشنامه.pdf', description: 'Original filename.' })
+  originalName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  mimeType!: string;
+
+  @ApiProperty({ example: 512000, description: 'File size in bytes.' })
+  size!: number;
+
+  @ApiProperty({
+    example: '۵۰۰ کیلوبایت',
+    description: 'Ready-to-show Persian size.',
+  })
+  sizeLabel!: string;
+}
+
+/** The full news item shown on the detail page — the list fields plus attachments. */
+export class NewsDetailDto extends NewsDto {
+  @ApiProperty({ type: [NewsAttachmentDto] })
+  attachments!: NewsAttachmentDto[];
 }
 
 /** What kind of change happened, pushed over the SSE stream. */
