@@ -28,6 +28,27 @@ interface SeedEvent {
   end?: string; // Jalali end for multi-day ranges
 }
 
+// The engineering departments shown on the چارت آموزشی page. Seeding gives staff a
+// ready structure to upload PDFs into — the actual chart files are added from the
+// /admin panel (there are no bundled PDFs to seed). Upserting by slug makes this
+// safe to re-run and never touches files staff have already uploaded.
+interface SeedDepartment {
+  slug: string;
+  title: string;
+  icon: string;
+  color: string; // must be one of CHART_DEPARTMENT_COLORS
+}
+
+const CHART_DEPARTMENTS: SeedDepartment[] = [
+  { slug: 'computer', title: 'مهندسی کامپیوتر', icon: '💻', color: 'computer' },
+  { slug: 'material', title: 'مهندسی مواد', icon: '🔬', color: 'material' },
+  { slug: 'mechanical', title: 'مهندسی مکانیک', icon: '⚙️', color: 'mechanical' },
+  { slug: 'mining', title: 'مهندسی معدن', icon: '⛏️', color: 'mining' },
+  { slug: 'chemical', title: 'مهندسی شیمی', icon: '🧪', color: 'chemical' },
+  { slug: 'biomedical', title: 'مهندسی پزشکی', icon: '🏥', color: 'biomedical' },
+  { slug: 'electrical', title: 'مهندسی برق', icon: '⚡', color: 'electrical' },
+];
+
 // Rows transcribed from the notice, top to bottom.
 const EVENTS: SeedEvent[] = [
   { title: 'انتخاب واحد', cohort: 'ورودی ۴۰۲ و ماقبل', category: 'registration', start: '1404/11/26' },
@@ -74,6 +95,40 @@ async function main(): Promise<void> {
 
   console.log(
     `✅ Seeded "${semester.title}" with ${semester.events.length} events (set active).`,
+  );
+
+  await seedChartDepartments();
+}
+
+/**
+ * Upsert the engineering departments for the چارت آموزشی page. Idempotent (keyed
+ * by the unique slug), so re-running only refreshes the department metadata and
+ * never disturbs the chart PDFs staff have uploaded.
+ */
+async function seedChartDepartments(): Promise<void> {
+  for (const [index, dept] of CHART_DEPARTMENTS.entries()) {
+    await prisma.chartDepartment.upsert({
+      where: { slug: dept.slug },
+      create: {
+        slug: dept.slug,
+        title: dept.title,
+        icon: dept.icon,
+        color: dept.color,
+        sortOrder: index,
+        isPublished: true,
+      },
+      // On re-run keep it in sync but leave isPublished (staff may have hidden it).
+      update: {
+        title: dept.title,
+        icon: dept.icon,
+        color: dept.color,
+        sortOrder: index,
+      },
+    });
+  }
+
+  console.log(
+    `✅ Seeded ${CHART_DEPARTMENTS.length} chart departments (upload PDFs from /admin/chart).`,
   );
 }
 

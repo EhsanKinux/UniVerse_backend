@@ -51,6 +51,7 @@ model User {
   updatedAt DateTime @updatedAt // updated every time the row changes
 
   // ---- Relations to per-student features ----
+  profile           Profile? // extended profile the student fills in (1-1)
   courses           Course[] // the user's weekly-schedule courses
   scheduleSettings  ScheduleSettings? // reminder + week-parity preferences
   pushSubscriptions PushSubscription[] // devices this user is logged in on
@@ -58,6 +59,73 @@ model User {
   // Store this model in a table literally named "users" (lowercase plural is a
   // common SQL convention), rather than the default "User".
   @@map("users")
+}
+
+// =============================================================================
+// PROFILE (اطلاعات حساب کاربری)
+// The extended profile a student fills in themselves. Kept as a SEPARATE 1-1
+// table (like ScheduleSettings) rather than piling columns onto User, so auth
+// stays lean and future profile fields land here without touching login code.
+//
+// EVERY field is optional: the student fills the profile in gradually, and the
+// PWA awards "points" for each completed field (see profile/profile.constants.ts
+// for the weights). Clearing a field on the PWA sets it back to null here.
+//
+// The display NAME lives on User.name (it's used by register + the JWT flow), so
+// it is intentionally NOT duplicated here.
+// =============================================================================
+model Profile {
+  id String @id @default(cuid())
+
+  // One row per user (@unique turns this 1-N relation into 1-1).
+  // Cascade = deleting the user removes their profile too.
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ---- Personal (اطلاعات فردی) ----
+  phone String? // شماره تماس
+
+  // کد ملی. @unique so two accounts can't claim the same national id (many nulls
+  // are allowed — Postgres treats NULLs as distinct). We catch the unique-clash
+  // in the service and return a friendly Persian error.
+  nationalId String? @unique
+
+  // تاریخ تولد, stored as a Jalali date STRING ("۱۳۸۰/۰۵/۱۲" normalised to
+  // "1380/05/12"). It's only ever displayed, never computed on, so a plain string
+  // avoids all Jalali↔Gregorian conversion headaches.
+  birthDate String?
+
+  gender   String? // "male" | "female" (validated in the DTO)
+  province String? // استان
+  city     String? // شهر
+
+  // ---- Academic (اطلاعات تحصیلی) ----
+  // These used to be hard-coded mock data in the PWA; now the student enters and
+  // owns them (this app has no university SIS to import them from).
+  studentId String? @unique // شماره دانشجویی
+  major     String? // رشته تحصیلی
+  faculty   String? // دانشکده
+  degree    String? // "associate" | "bachelor" | "master" | "phd" (validated)
+  entryYear Int? // سال ورود — a Jalali year, e.g. 1403
+  advisor   String? // استاد راهنما
+
+  // ---- Avatar (تصویر پروفایل) ----
+  // Only lightweight metadata lives here; the image BYTES live on disk under a
+  // random name in uploads/avatars (same "files on disk, metadata in DB" pattern
+  // the documents feature uses). null = using the initials fallback.
+  avatarStoredName String?
+  avatarMimeType   String?
+
+  // ---- Bio & emergency (درباره و تماس اضطراری) ----
+  bio            String? // درباره من
+  emergencyName  String? // نام مخاطب اضطراری
+  emergencyPhone String? // شماره مخاطب اضطراری
+  telegram       String? // شناسه پیام‌رسان (تلگرام)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
 }
 
 // =============================================================================
@@ -326,6 +394,19 @@ model News {
   // OPTIONAL "read more" URL (an internal route or an external link). null = none.
   link String?
 
+  // ---- Cover image (تصویر شاخص) ----
+  // OPTIONAL hero image shown at the top of the news detail page. Only lightweight
+  // metadata lives here; the image BYTES live on disk under a random name in the
+  // shared uploads/ folder — the same "files on disk, metadata in DB" pattern the
+  // documents feature (and the profile avatar) use. null = no cover.
+  coverStoredName String?
+  coverMimeType   String?
+
+  // The downloadable files staff attach to this item (بخشنامه‌ها، فرم‌ها، …).
+  // Cascade is declared on the attachment side, so deleting a news item removes
+  // its attachment rows (the on-disk files are unlinked in NewsService.remove).
+  attachments NewsAttachment[]
+
   // Drafts (isPublished=false) are hidden from the public API; pinned items sort
   // ahead of the rest in the carousel.
   isPublished Boolean @default(true)
@@ -342,6 +423,143 @@ model News {
   // The public list filters by isPublished and orders by pinned + publishedAt.
   @@index([isPublished, pinned, publishedAt])
   @@map("news")
+}
+
+// One file attached to a news item. Mirrors Document's file-metadata columns:
+// the BYTES live on disk under a random name in the shared uploads/ folder, only
+// this lightweight metadata row lives in the database. A news item can have many
+// (PDFs, images, Office docs); staff add/remove them from the /admin panel.
+model NewsAttachment {
+  id String @id @default(cuid())
+
+  // The owning news item. Cascade = deleting the news removes its attachment rows.
+  newsId String
+  news   News   @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  // The name we saved the file under on disk (a random cuid + extension). We never
+  // reuse the user's original name for the on-disk path — it could collide with
+  // another upload or contain unsafe path characters.
+  storedName String
+
+  // The original name the staff member's file had, e.g. "بخشنامه.pdf". Shown in the
+  // UI and used as the suggested filename when a student downloads it.
+  originalName String
+
+  // The file's MIME type, e.g. "application/pdf"; lets the download endpoint send
+  // the correct Content-Type header and the UI pick a file-type icon.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is well under 2GB). Shown
+  // formatted (e.g. «۴٫۲ مگابایت»).
+  size Int
+
+  // Tie-breaker so attachments render in the order staff uploaded them.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  // We always fetch attachments by their news item, so index that column.
+  @@index([newsId])
+  @@map("news_attachments")
+}
+
+// =============================================================================
+// EDUCATIONAL CHART (چارت آموزشی)
+// The curriculum roadmap library. Students pick a DEPARTMENT (رشته) and download
+// its chart PDFs — and a department can carry MORE THAN ONE PDF (e.g. one per
+// curriculum era: «قبل ۱۴۰۳» vs «۱۴۰۳ به بعد»). That one-department-to-many-files
+// shape is exactly the News → NewsAttachment pattern, so we model it the same way
+// (parent row + child file rows) rather than the Document model's single-active
+// -file-per-category shape, which doesn't fit here.
+//
+// University staff manage both levels from the /admin panel (add/edit/reorder
+// departments and upload/remove their PDFs) — no per-term code changes. The PDF
+// BYTES live on disk under a random name in the shared uploads/ folder; only this
+// lightweight METADATA lives in the database ("files on disk, metadata in DB").
+// =============================================================================
+model ChartDepartment {
+  id String @id @default(cuid())
+
+  // A stable, URL-safe key the PWA maps to its department colour token
+  // (--color-<slug>) and uses as a React list key. @unique so the seed can
+  // upsert by it and two departments can't collide. e.g. "computer".
+  slug String @unique
+
+  // The Persian department name shown on the card, e.g. «مهندسی کامپیوتر».
+  title String
+
+  // The emoji shown in the card's avatar, e.g. "💻". A plain string (staff type
+  // any emoji), with a book fallback so a blank never renders an empty circle.
+  icon String @default("📚")
+
+  // A colour slug the PWA maps to a design-system token. Validated in the service
+  // against a known set (CHART_DEPARTMENT_COLORS) — plain string, so re-theming
+  // needs NO migration. e.g. "computer" → text-computer / bg-computer/10.
+  color String @default("computer")
+
+  // Manual ordering of the department list (lower = higher up). Staff reorder in
+  // the admin; ties fall back to title.
+  sortOrder Int @default(0)
+
+  // Hidden departments stay in the DB (and keep their files) but are dropped from
+  // the public API — handy while staff are still preparing a department's charts.
+  isPublished Boolean @default(true)
+
+  // The downloadable chart PDFs of this department. Cascade is declared on the
+  // file side, so deleting a department removes its file rows (the on-disk PDFs
+  // are unlinked in ChartService.removeDepartment).
+  files ChartFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by sortOrder.
+  @@index([isPublished, sortOrder])
+  @@map("chart_departments")
+}
+
+// One chart PDF belonging to a department. Mirrors NewsAttachment's file-metadata
+// columns: the BYTES live on disk under a random name in the shared uploads/
+// folder, only this lightweight metadata row lives in the database.
+model ChartFile {
+  id String @id @default(cuid())
+
+  // The owning department. Cascade = deleting the department removes its files.
+  departmentId String
+  department   ChartDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  // The Persian title shown for this specific chart, e.g.
+  // «کارشناسی مهندسی نرم‌افزار قبل ۱۴۰۳».
+  title String
+
+  // OPTIONAL free-text era/entry-year tag rendered as a small pill on the card,
+  // e.g. «قبل ۱۴۰۳» or «۱۴۰۳ به بعد». null = no badge.
+  badge String?
+
+  // The name we saved the file under on disk (a random cuid + extension). We never
+  // reuse the user's filename for the on-disk path — it could collide with another
+  // upload or contain unsafe path characters.
+  storedName String
+
+  // The original name the staff member's file had, e.g. «چارت-نرم‌افزار.pdf». Shown
+  // in the admin and used as the suggested filename when a student downloads it.
+  originalName String
+
+  // The file's MIME type (always application/pdf here); lets the download endpoint
+  // send the correct Content-Type header.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is ~20MB). Shown formatted.
+  size Int
+
+  // Tie-breaker so a department's charts render in the order staff arranged them.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  // We always fetch files by their department, so index that column.
+  @@index([departmentId])
+  @@map("chart_files")
 }
 
 // =============================================================================
