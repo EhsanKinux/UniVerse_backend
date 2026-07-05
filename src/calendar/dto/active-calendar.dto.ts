@@ -62,7 +62,10 @@ export class PublicCalendarEventDto {
   })
   dateLabel!: string;
 
-  @ApiProperty({ example: 'یکشنبه', description: 'Persian weekday of the start.' })
+  @ApiProperty({
+    example: 'یکشنبه',
+    description: 'Persian weekday of the start.',
+  })
   weekday!: string;
 
   @ApiProperty({

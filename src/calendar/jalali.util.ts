@@ -47,7 +47,9 @@ export function parseJalali(input: string): JalaliParts {
   const cleaned = normalizeDigits(input.trim());
   const match = cleaned.match(/^(\d{3,4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
   if (!match) {
-    throw new Error(`"${input}" is not a valid Jalali date (expected YYYY/MM/DD).`);
+    throw new Error(
+      `"${input}" is not a valid Jalali date (expected YYYY/MM/DD).`,
+    );
   }
   const jy = Number(match[1]);
   const jm = Number(match[2]);

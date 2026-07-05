@@ -139,7 +139,10 @@ export class CalendarService {
     input: EventInput,
   ): Promise<CalendarEvent> {
     await this.ensureSemesterExists(semesterId);
-    const { startDate, endDate } = this.parseDates(input.startDate, input.endDate);
+    const { startDate, endDate } = this.parseDates(
+      input.startDate,
+      input.endDate,
+    );
     return this.prisma.calendarEvent.create({
       data: {
         semesterId,
@@ -155,7 +158,10 @@ export class CalendarService {
 
   async updateEvent(id: string, input: EventInput): Promise<CalendarEvent> {
     await this.getEvent(id); // 404 if it's gone
-    const { startDate, endDate } = this.parseDates(input.startDate, input.endDate);
+    const { startDate, endDate } = this.parseDates(
+      input.startDate,
+      input.endDate,
+    );
     return this.prisma.calendarEvent.update({
       where: { id },
       data: {
@@ -292,7 +298,9 @@ export class CalendarService {
       throw new BadRequestException('تاریخ پایان معتبر نیست.');
     }
     if (endDate.getTime() < startDate.getTime()) {
-      throw new BadRequestException('تاریخ پایان نباید پیش از تاریخ شروع باشد.');
+      throw new BadRequestException(
+        'تاریخ پایان نباید پیش از تاریخ شروع باشد.',
+      );
     }
     return { startDate, endDate };
   }
@@ -304,7 +312,10 @@ export class CalendarService {
     return category;
   }
 
-  private requireText(value: string | undefined | null, message: string): string {
+  private requireText(
+    value: string | undefined | null,
+    message: string,
+  ): string {
     const text = value?.trim();
     if (!text) {
       throw new BadRequestException(message);
