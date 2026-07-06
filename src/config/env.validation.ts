@@ -21,6 +21,13 @@ class EnvironmentVariables {
   @IsNumber()
   PORT!: number;
 
+  // Network interface to bind to. Defaults to 0.0.0.0 (all interfaces). Behind
+  // the same-host Next.js `/api` proxy in production, set 127.0.0.1 to keep the
+  // API off the public network.
+  @IsOptional()
+  @IsString()
+  HOST?: string;
+
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;

@@ -17,6 +17,14 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
+  // --- Reverse-proxy awareness -----------------------------------------------
+  // In production the PWA reaches this API through the Next.js server's
+  // same-origin `/api` proxy (browser → Next → here), so requests arrive from a
+  // local upstream. Trust `X-Forwarded-*` ONLY from a loopback address, so
+  // `req.ip` / `req.protocol` reflect the real client instead of the proxy —
+  // without letting a direct, non-local caller spoof those headers.
+  app.set('trust proxy', 'loopback');
+
   // --- Admin session + view engine -------------------------------------------
   // The /admin panel is server-rendered (Handlebars templates) and gated by a
   // simple shared login held in a signed session cookie (no per-user roles).
@@ -62,11 +70,20 @@ async function bootstrap() {
   );
 
   // --- CORS ------------------------------------------------------------------
-  // Lets your Next.js front end (a different origin) call this API from the
-  // browser. Without it, the browser blocks the requests.
+  // The PWA now calls this API through the Next.js same-origin `/api` proxy, so
+  // those requests are server-to-server and NOT subject to browser CORS. CORS
+  // therefore only governs DIRECT browser calls: a dev "escape hatch" base URL,
+  // or the server-rendered /admin panel and /docs. Set CORS_ORIGIN to the exact
+  // front-end origin(s) in production; when unset we reflect the request origin,
+  // which is convenient for local development only.
   const corsOrigin = configService.get<string>('CORS_ORIGIN');
   app.enableCors({
-    origin: corsOrigin ? corsOrigin.split(',').map((o) => o.trim()) : true,
+    origin: corsOrigin
+      ? corsOrigin
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean)
+      : true,
     credentials: true,
   });
 
@@ -93,9 +110,13 @@ async function bootstrap() {
 
   // --- Start listening -------------------------------------------------------
   const port = configService.get<number>('PORT') ?? 3001;
-  await app.listen(port);
+  // Bind to all interfaces by default. On a server that fronts this API with the
+  // Next.js `/api` proxy on the SAME host, set HOST=127.0.0.1 to keep the API
+  // private — reachable only by the local proxy, never the public network.
+  const host = configService.get<string>('HOST') ?? '0.0.0.0';
+  await app.listen(port, host);
 
-  console.log(`🚀 uni-verse API running at http://localhost:${port}`);
+  console.log(`🚀 uni-verse API running on ${host}:${port}`);
   console.log(`📚 Swagger docs at        http://localhost:${port}/docs`);
 }
 
