@@ -10,6 +10,7 @@ import { ChartModule } from './chart/chart.module';
 import { validateEnv } from './config/env.validation';
 import { DocumentsModule } from './documents/documents.module';
 import { NewsModule } from './news/news.module';
+import { PhoneBookModule } from './phone-book/phone-book.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProfileModule } from './profile/profile.module';
 import { PushModule } from './push/push.module';
@@ -37,6 +38,7 @@ import { UsersModule } from './users/users.module';
     CalendarModule, // academic calendar: public read API
     DocumentsModule, // staff-managed files (e.g. the courses PDF): public read API
     ChartModule, // چارت آموزشی: departments + their chart PDFs, public read API
+    PhoneBookModule, // شماره‌های دانشگاه: contact groups + numbers, public read API
     NewsModule, // news/announcements: public read API + real-time SSE stream
     PushModule, // Web Push (OS notifications): VAPID + subscriptions
     WeeklyScheduleModule, // برنامه هفتگی: per-student timetable + class reminders
