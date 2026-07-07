@@ -49,6 +49,84 @@ const CHART_DEPARTMENTS: SeedDepartment[] = [
   { slug: 'electrical', title: 'مهندسی برق', icon: '⚡', color: 'electrical' },
 ];
 
+// The university phone directory shown on the شماره‌های دانشگاه page. This used to
+// be hard-coded in the PWA (lib/phone-data.ts); we seed the same starting data so
+// nothing is lost, then staff manage it from /admin/phone-book. `icon` is a key
+// from CONTACT_GROUP_ICONS (mapped to a line icon in the PWA).
+interface SeedContact {
+  name: string;
+  phone: string;
+  ext?: string;
+}
+interface SeedContactGroup {
+  title: string;
+  icon: string; // must be one of CONTACT_GROUP_ICONS
+  contacts: SeedContact[];
+}
+
+const CONTACT_GROUPS: SeedContactGroup[] = [
+  {
+    title: 'معاونت آموزشی',
+    icon: 'education',
+    contacts: [
+      { name: 'دفتر معاونت آموزشی', phone: '02133334455', ext: '۲۱۰' },
+      { name: 'اداره ثبت‌نام و امتحانات', phone: '02133334456', ext: '۲۱۵' },
+      { name: 'اداره فارغ‌التحصیلان', phone: '02133334457', ext: '۲۲۰' },
+    ],
+  },
+  {
+    title: 'امور دانشجویی',
+    icon: 'students',
+    contacts: [
+      { name: 'اداره خوابگاه‌ها', phone: '02133334460', ext: '۳۱۰' },
+      { name: 'صندوق رفاه دانشجویان', phone: '02133334461', ext: '۳۱۵' },
+      { name: 'مرکز مشاوره', phone: '02133334462', ext: '۳۲۰' },
+    ],
+  },
+  {
+    title: 'کتابخانه مرکزی',
+    icon: 'library',
+    contacts: [
+      { name: 'میز امانت', phone: '02133334470', ext: '۴۱۰' },
+      { name: 'بخش مرجع و پایان‌نامه', phone: '02133334471', ext: '۴۱۵' },
+    ],
+  },
+  {
+    title: 'اداره تغذیه',
+    icon: 'food',
+    contacts: [
+      { name: 'سلف مرکزی', phone: '02133334480', ext: '۵۱۰' },
+      { name: 'واحد رزرو غذا', phone: '02133334481', ext: '۵۱۵' },
+    ],
+  },
+  {
+    title: 'فناوری اطلاعات',
+    icon: 'it',
+    contacts: [
+      { name: 'پشتیبانی سامانه‌ها', phone: '02133334490', ext: '۶۱۰' },
+      { name: 'پشتیبانی اینترنت و شبکه', phone: '02133334491', ext: '۶۱۵' },
+    ],
+  },
+  {
+    title: 'حراست',
+    icon: 'security',
+    contacts: [{ name: 'دفتر حراست دانشگاه', phone: '02133334400', ext: '۱۰۰' }],
+  },
+  {
+    title: 'اورژانس و درمانگاه',
+    icon: 'emergency',
+    contacts: [
+      { name: 'درمانگاه دانشگاه', phone: '02133334411', ext: '۱۱۰' },
+      { name: 'اورژانس (شبانه‌روزی)', phone: '115' },
+    ],
+  },
+  {
+    title: 'تلفن‌خانه مرکزی',
+    icon: 'phone',
+    contacts: [{ name: 'روابط عمومی دانشگاه', phone: '02133334000' }],
+  },
+];
+
 // Rows transcribed from the notice, top to bottom.
 const EVENTS: SeedEvent[] = [
   { title: 'انتخاب واحد', cohort: 'ورودی ۴۰۲ و ماقبل', category: 'registration', start: '1404/11/26' },
@@ -98,6 +176,7 @@ async function main(): Promise<void> {
   );
 
   await seedChartDepartments();
+  await seedContactGroups();
 }
 
 /**
@@ -129,6 +208,46 @@ async function seedChartDepartments(): Promise<void> {
 
   console.log(
     `✅ Seeded ${CHART_DEPARTMENTS.length} chart departments (upload PDFs from /admin/chart).`,
+  );
+}
+
+/**
+ * Seed the phone directory ONLY when it's still empty — the numbers are staff-owned
+ * after the first run, so we never overwrite their edits on a re-seed. (There's no
+ * natural unique key to upsert on the way charts do with their slug, so an
+ * empty-table guard is the safe, idempotent choice.)
+ */
+async function seedContactGroups(): Promise<void> {
+  const existing = await prisma.contactGroup.count();
+  if (existing > 0) {
+    console.log(
+      `↷ Skipped phone directory seed (${existing} group(s) already exist).`,
+    );
+    return;
+  }
+
+  for (const [index, group] of CONTACT_GROUPS.entries()) {
+    await prisma.contactGroup.create({
+      data: {
+        title: group.title,
+        icon: group.icon,
+        sortOrder: index,
+        isPublished: true,
+        contacts: {
+          create: group.contacts.map((c, i) => ({
+            name: c.name,
+            phone: c.phone,
+            ext: c.ext ?? null,
+            sortOrder: i,
+          })),
+        },
+      },
+    });
+  }
+
+  const numbers = CONTACT_GROUPS.reduce((s, g) => s + g.contacts.length, 0);
+  console.log(
+    `✅ Seeded ${CONTACT_GROUPS.length} contact groups with ${numbers} numbers (manage from /admin/phone-book).`,
   );
 }
 
