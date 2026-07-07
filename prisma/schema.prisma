@@ -643,6 +643,136 @@ model Contact {
 }
 
 // =============================================================================
+// GROUPS & CHANNELS (گروه‌ها)
+// The directory of joinable university groups/channels students browse under
+// /groups. It used to be hard-coded in the PWA (lib/data/groups-data.ts); now
+// staff manage it from /admin so a new channel or a changed invite link needs NO
+// code change. It's a THREE-level tree — one level deeper than the phone book —
+// because a single group can advertise SEVERAL ways to join:
+//
+//   GroupCategory (e.g. «کانال‌های رسمی»)
+//     └─ Group      (e.g. «انجمن علمی کامپیوتر» — one card)
+//          └─ GroupLink (a join option: a link, a copyable id, or a QR image)
+//
+// The QR images are the only files on disk here; everything else is plain rows.
+// =============================================================================
+
+// One heading in the directory, e.g. «کانال‌های رسمی» — a group of related cards.
+// Staff create/rename/reorder these freely (free-form, like phone-book groups).
+model GroupCategory {
+  id String @id @default(cuid())
+
+  // The Persian heading shown above the category's cards, e.g. «گروه‌های کلاسی».
+  title String
+
+  // Manual ordering of the category list (lower = higher up). Staff reorder in the
+  // admin; ties fall back to title.
+  sortOrder Int @default(0)
+
+  // Hidden categories stay in the DB (and keep their groups) but drop out of the
+  // public API — handy while staff are still preparing a category's contents.
+  isPublished Boolean @default(true)
+
+  // The group/channel cards in this category. Cascade is declared on the group
+  // side, so deleting a category removes its groups (and their links).
+  groups Group[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by sortOrder.
+  @@index([isPublished, sortOrder])
+  @@map("group_categories")
+}
+
+// One joinable group/channel — the shape the PWA renders as a card.
+model Group {
+  id String @id @default(cuid())
+
+  // The owning category. Cascade = deleting a category removes its groups.
+  categoryId String
+  category   GroupCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // The Persian name of the group/channel, e.g. «اطلاع‌رسانی آموزش دانشگاه».
+  title String
+
+  // OPTIONAL one/two-line description shown under the title. null = none.
+  description String?
+
+  // A short, FREE-TEXT platform badge staff type themselves, e.g. «تلگرام»،
+  // «واتساپ»، «ایتا»، «بله»، «اینستاگرام». Rendered as a small pill on the card.
+  // We deliberately keep it free text (not an enum/icon key) so staff can label a
+  // group with any messenger without a code change. null = no badge shown.
+  platform String?
+
+  // Manual ordering of the cards within a category (lower = higher up).
+  sortOrder Int @default(0)
+
+  // Hidden groups stay in the DB (and keep their links) but drop out of the public
+  // API — handy while a group is still being set up.
+  isPublished Boolean @default(true)
+
+  // The ways to join this group (invite links, copyable ids, QR images). Cascade
+  // is declared on the link side, so deleting a group removes its link rows (the
+  // on-disk QR images are unlinked in GroupsService.removeGroup).
+  links GroupLink[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public tree fetches groups by their category, so index that column.
+  @@index([categoryId])
+  @@map("groups")
+}
+
+// One way to join a group. A group can carry several (a main channel + a backup,
+// a channel plus its discussion group, …). Its `kind` decides which field holds
+// the payload:
+//   • "link"   → `url`    (a clickable invite/join URL)
+//   • "handle" → `handle` (a copyable @username or invite CODE — not every join
+//                          is a URL, so this is tap-to-copy on the PWA)
+//   • "qr"     → an uploaded QR image (qrStoredName/qrMimeType), streamed inline.
+model GroupLink {
+  id String @id @default(cuid())
+
+  // The owning group. Cascade = deleting a group removes its links.
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // Which kind of join option this row is: "link" | "handle" | "qr". A plain
+  // string validated in the service against a known set (GROUP_LINK_KINDS), so a
+  // future kind needs NO migration.
+  kind String @default("link")
+
+  // OPTIONAL short label shown on the button/row, e.g. «کانال اصلی» or «گروه پرسش
+  // و پاسخ». null = the PWA falls back to a default label for the kind.
+  label String?
+
+  // The join URL — set for kind="link" (e.g. https://t.me/example). null otherwise.
+  url String?
+
+  // The copyable handle/code — set for kind="handle" (e.g. «@university» or an
+  // invite code). Shown with a copy button on the PWA. null otherwise.
+  handle String?
+
+  // ---- QR image (for kind="qr") ----
+  // Only lightweight metadata lives here; the image BYTES live on disk under a
+  // random name in the shared uploads/ folder (same "files on disk, metadata in
+  // DB" pattern as news/chart). null = this row isn't a QR (or has no image yet).
+  qrStoredName String?
+  qrMimeType   String?
+
+  // Tie-breaker so a group's join options render in the order staff arranged them.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  // We always fetch links by their group, so index that column.
+  @@index([groupId])
+  @@map("group_links")
+}
+
+// =============================================================================
 // WEB PUSH SUBSCRIPTIONS
 // One row per browser/device that opted in to OS push notifications. The PWA
 // registers its PushSubscription here; PushService encrypts and sends to every

@@ -127,6 +127,82 @@ const CONTACT_GROUPS: SeedContactGroup[] = [
   },
 ];
 
+// The joinable groups/channels shown on the گروه‌ها page. This used to be
+// hard-coded in the PWA (lib/data/groups-data.ts); we seed the same starting data
+// so nothing is lost, then staff manage it from /admin/groups. Each group carries
+// one or more join options; the seed uses simple "link" options. `platform` is a
+// free-text badge (any messenger name).
+interface SeedGroupLink {
+  kind: 'link' | 'handle' | 'qr';
+  label?: string;
+  url?: string;
+  handle?: string;
+}
+interface SeedGroup {
+  title: string;
+  description?: string;
+  platform?: string;
+  links: SeedGroupLink[];
+}
+interface SeedGroupCategory {
+  title: string;
+  groups: SeedGroup[];
+}
+
+const GROUP_CATEGORIES: SeedGroupCategory[] = [
+  {
+    title: 'کانال‌های رسمی',
+    groups: [
+      {
+        title: 'اطلاع‌رسانی آموزش دانشگاه',
+        description: 'اخبار رسمی، اطلاعیه‌ها و رویدادهای آموزشی',
+        platform: 'تلگرام',
+        links: [{ kind: 'link', url: 'https://t.me/example_edu' }],
+      },
+      {
+        title: 'انجمن علمی مهندسی کامپیوتر',
+        description: 'کارگاه‌ها، مسابقات و فرصت‌های شغلی',
+        platform: 'تلگرام',
+        links: [{ kind: 'link', url: 'https://t.me/example_cs' }],
+      },
+    ],
+  },
+  {
+    title: 'گروه‌های کلاسی',
+    groups: [
+      {
+        title: 'ورودی ۱۴۰۳ - مهندسی کامپیوتر',
+        description: 'هماهنگی کلاس‌ها و تکالیف هم‌ورودی‌ها',
+        platform: 'تلگرام',
+        links: [{ kind: 'link', url: 'https://t.me/example_1403' }],
+      },
+      {
+        title: 'گروه درس ساختمان داده‌ها',
+        description: 'پرسش و پاسخ و منابع درس',
+        platform: 'واتساپ',
+        links: [{ kind: 'link', url: 'https://chat.whatsapp.com/example' }],
+      },
+    ],
+  },
+  {
+    title: 'انجمن‌ها و تشکل‌ها',
+    groups: [
+      {
+        title: 'انجمن برنامه‌نویسی دانشگاه',
+        description: 'دورهمی‌های فنی و پروژه‌های گروهی',
+        platform: 'تلگرام',
+        links: [{ kind: 'link', url: 'https://t.me/example_dev' }],
+      },
+      {
+        title: 'کانون فرهنگی و هنری',
+        description: 'رویدادهای فرهنگی، اردوها و کارگاه‌ها',
+        platform: 'تلگرام',
+        links: [{ kind: 'link', url: 'https://t.me/example_culture' }],
+      },
+    ],
+  },
+];
+
 // Rows transcribed from the notice, top to bottom.
 const EVENTS: SeedEvent[] = [
   { title: 'انتخاب واحد', cohort: 'ورودی ۴۰۲ و ماقبل', category: 'registration', start: '1404/11/26' },
@@ -177,6 +253,7 @@ async function main(): Promise<void> {
 
   await seedChartDepartments();
   await seedContactGroups();
+  await seedGroups();
 }
 
 /**
@@ -248,6 +325,55 @@ async function seedContactGroups(): Promise<void> {
   const numbers = CONTACT_GROUPS.reduce((s, g) => s + g.contacts.length, 0);
   console.log(
     `✅ Seeded ${CONTACT_GROUPS.length} contact groups with ${numbers} numbers (manage from /admin/phone-book).`,
+  );
+}
+
+/**
+ * Seed the groups/channels directory ONLY when it's still empty — it's staff-owned
+ * after the first run, so we never overwrite their edits on a re-seed. (Same
+ * empty-table guard as the phone directory: there's no natural unique key to
+ * upsert on.)
+ */
+async function seedGroups(): Promise<void> {
+  const existing = await prisma.groupCategory.count();
+  if (existing > 0) {
+    console.log(
+      `↷ Skipped groups seed (${existing} category(ies) already exist).`,
+    );
+    return;
+  }
+
+  for (const [index, category] of GROUP_CATEGORIES.entries()) {
+    await prisma.groupCategory.create({
+      data: {
+        title: category.title,
+        sortOrder: index,
+        isPublished: true,
+        groups: {
+          create: category.groups.map((g, gi) => ({
+            title: g.title,
+            description: g.description ?? null,
+            platform: g.platform ?? null,
+            sortOrder: gi,
+            isPublished: true,
+            links: {
+              create: g.links.map((l, li) => ({
+                kind: l.kind,
+                label: l.label ?? null,
+                url: l.url ?? null,
+                handle: l.handle ?? null,
+                sortOrder: li,
+              })),
+            },
+          })),
+        },
+      },
+    });
+  }
+
+  const groupCount = GROUP_CATEGORIES.reduce((s, c) => s + c.groups.length, 0);
+  console.log(
+    `✅ Seeded ${GROUP_CATEGORIES.length} group categories with ${groupCount} groups (manage from /admin/groups).`,
   );
 }
 
