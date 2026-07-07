@@ -6,12 +6,14 @@ import { ChartModule } from '../chart/chart.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { createMulterOptions } from '../documents/upload.config';
 import { NewsModule } from '../news/news.module';
+import { PhoneBookModule } from '../phone-book/phone-book.module';
 import { UsersModule } from '../users/users.module';
 import { AdminAuthFilter } from './admin-auth.filter';
 import { AdminController } from './admin.controller';
 import { AdminChartController } from './admin-chart.controller';
 import { AdminDocumentsController } from './admin-documents.controller';
 import { AdminNewsController } from './admin-news.controller';
+import { AdminPhoneBookController } from './admin-phone-book.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminGuard } from './admin.guard';
 
@@ -31,6 +33,7 @@ import { AdminGuard } from './admin.guard';
     ChartModule,
     DocumentsModule,
     NewsModule,
+    PhoneBookModule,
     UsersModule,
     MulterModule.registerAsync({
       inject: [ConfigService],
@@ -42,6 +45,7 @@ import { AdminGuard } from './admin.guard';
     AdminChartController,
     AdminDocumentsController,
     AdminNewsController,
+    AdminPhoneBookController,
     AdminUsersController,
   ],
   providers: [AdminGuard, AdminAuthFilter],
