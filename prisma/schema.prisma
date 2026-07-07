@@ -563,6 +563,86 @@ model ChartFile {
 }
 
 // =============================================================================
+// PHONE BOOK (شماره‌های دانشگاه)
+// The university phone directory students browse under /phone-list. It used to be
+// hard-coded in the PWA (lib/phone-data.ts); now staff manage it from /admin so a
+// changed extension or a whole new unit needs NO code change. The shape is the
+// same one-parent-to-many-children as چارت آموزشی (ChartDepartment → ChartFile),
+// but the children are plain contact rows, so there are NO files on disk here —
+// everything lives in these two tables.
+// =============================================================================
+
+// One heading in the directory, e.g. «معاونت آموزشی» — a group of related numbers.
+model ContactGroup {
+  id String @id @default(cuid())
+
+  // The Persian heading shown above the group's numbers, e.g. «امور دانشجویی».
+  title String
+
+  // An icon KEY (not an emoji): a stable slug the PWA maps to a HugeIcons line
+  // icon (see lib/phone-meta.ts), keeping the current monochrome look. Validated
+  // in the service against a known set (CONTACT_GROUP_ICONS) — a plain string, so
+  // re-theming needs NO migration. e.g. "library" → Book02Icon.
+  icon String @default("phone")
+
+  // Manual ordering of the group list (lower = higher up). Staff reorder in the
+  // admin; ties fall back to title.
+  sortOrder Int @default(0)
+
+  // Hidden groups stay in the DB (and keep their numbers) but drop out of the
+  // public API — handy while staff are still preparing a group's contacts.
+  isPublished Boolean @default(true)
+
+  // The phone numbers in this group. Cascade is declared on the contact side, so
+  // deleting a group removes its contact rows.
+  contacts Contact[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by sortOrder.
+  @@index([isPublished, sortOrder])
+  @@map("contact_groups")
+}
+
+// One number in the directory, e.g. «اداره ثبت‌نام و امتحانات».
+model Contact {
+  id String @id @default(cuid())
+
+  // The owning group. Cascade = deleting the group removes its contacts.
+  groupId String
+  group   ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // The unit / person name shown on the row, e.g. «میز امانت».
+  name String
+
+  // The phone number as a plain string (kept exactly as staff typed it — leading
+  // zeros, short codes like «۱۱۵», etc.). The PWA formats it for display and uses
+  // it verbatim in the `tel:` link, so we never normalise or coerce it to a number.
+  phone String
+
+  // OPTIONAL internal extension, shown as «داخلی ۲۱۰». null = no extension.
+  ext String?
+
+  // OPTIONAL one-line note shown under the name, e.g. working hours or a role.
+  // null = none.
+  note String?
+
+  // OPTIONAL contact email, rendered as a mailto link. null = none.
+  email String?
+
+  // Tie-breaker so a group's numbers render in the order staff arranged them.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // We always fetch contacts by their group, so index that column.
+  @@index([groupId])
+  @@map("contacts")
+}
+
+// =============================================================================
 // WEB PUSH SUBSCRIPTIONS
 // One row per browser/device that opted in to OS push notifications. The PWA
 // registers its PushSubscription here; PushService encrypts and sends to every
