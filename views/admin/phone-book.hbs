@@ -1,0 +1,45 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">شماره‌های دانشگاه — گروه‌ها</h2>
+      <a class="btn btn-sm" href="/admin/phone-book/new">+ گروه جدید</a>
+    </div>
+    <p class="muted">هر گروه (مثل «معاونت آموزشی») می‌تواند چند شماره داشته باشد. برای افزودن، ویرایش یا حذف شماره‌های یک گروه، «ویرایش» را بزنید. گروه‌های بدون شماره در اپ نمایش داده نمی‌شوند.</p>
+
+    {{#if hasItems}}
+    <table>
+      <thead>
+        <tr><th>گروه</th><th>آیکون</th><th>تعداد شماره</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+        <tr>
+          <td><strong>{{title}}</strong></td>
+          <td class="muted">{{iconLabel}}</td>
+          <td class="muted">{{contactCount}} شماره</td>
+          <td>
+            {{#if isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">پنهان</span>{{/if}}
+          </td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/admin/phone-book/{{id}}/toggle" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">{{#if isPublished}}پنهان‌سازی{{else}}نمایش{{/if}}</button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href="/admin/phone-book/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/phone-book/{{id}}/delete" class="inline"
+                    onsubmit="return confirm('حذف این گروه و همهٔ شماره‌های آن؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز گروهی ثبت نشده است. برای شروع، «گروه جدید» را بزنید.</div>
+    {{/if}}
+  </div>
+</div>
+{{> foot}}

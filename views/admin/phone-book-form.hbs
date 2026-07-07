@@ -1,0 +1,126 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>{{#if isEdit}}ویرایش گروه{{else}}گروه جدید{{/if}}</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}">
+      <div class="row">
+        <div class="field">
+          <label>عنوان گروه</label>
+          <input type="text" name="title" value="{{group.title}}" placeholder="مثلاً: معاونت آموزشی" required />
+        </div>
+        <div class="field" style="flex:0 1 240px">
+          <label>آیکون</label>
+          <select name="icon">
+            {{#each iconOptions}}
+            <option value="{{value}}" {{#if (eq value ../group.icon)}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <div class="field" style="flex:0 1 120px">
+          <label>ترتیب نمایش</label>
+          <input type="text" name="sortOrder" value="{{group.sortOrder}}" inputmode="numeric" placeholder="0" />
+          <div class="hint">کوچک‌تر = بالاتر.</div>
+        </div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" name="isPublished" {{#if group.isPublished}}checked{{/if}} />
+        نمایش در اپ (در غیر این صورت پنهان می‌ماند)
+      </label>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">{{#if isEdit}}ذخیرهٔ تغییرات{{else}}ایجاد گروه{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin/phone-book">انصراف</a>
+      </div>
+    </form>
+  </div>
+
+  {{!-- Managing a group's numbers lives OUTSIDE the main form (nested forms are
+        invalid HTML), and only once the group exists. --}}
+  {{#if isEdit}}
+  <div class="card">
+    <h2 style="margin-top:0">افزودن شماره</h2>
+    <form method="post" action="/admin/phone-book/{{group.id}}/contacts">
+      <div class="row">
+        <div class="field">
+          <label>نام / واحد</label>
+          <input type="text" name="name" value="{{contactForm.name}}" placeholder="مثلاً: اداره ثبت‌نام و امتحانات" required />
+        </div>
+        <div class="field" style="flex:0 1 200px">
+          <label>شماره تماس</label>
+          <input type="text" name="phone" value="{{contactForm.phone}}" dir="ltr" style="text-align:right" placeholder="02133334456" required />
+        </div>
+        <div class="field" style="flex:0 1 120px">
+          <label>داخلی (اختیاری)</label>
+          <input type="text" name="ext" value="{{contactForm.ext}}" placeholder="۲۱۵" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>توضیح (اختیاری)</label>
+          <input type="text" name="note" value="{{contactForm.note}}" placeholder="مثلاً: شنبه تا چهارشنبه ۸ تا ۱۴" />
+        </div>
+        <div class="field" style="flex:0 1 240px">
+          <label>ایمیل (اختیاری)</label>
+          <input type="text" name="email" value="{{contactForm.email}}" dir="ltr" style="text-align:right" placeholder="edu@example.ac.ir" />
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn" type="submit">افزودن شماره</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">شماره‌های فعلی</h2>
+    {{#if group.contacts.length}}
+    <p class="muted">هر ردیف را می‌توانید مستقیم ویرایش کنید و «ذخیره» را بزنید.</p>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      {{#each group.contacts}}
+      <div style="border:1px solid var(--line);border-radius:10px;padding:12px">
+        <form method="post" action="/admin/phone-book/contacts/{{this.id}}">
+          <div class="row">
+            <div class="field" style="margin-bottom:8px">
+              <label>نام / واحد</label>
+              <input type="text" name="name" value="{{this.name}}" required />
+            </div>
+            <div class="field" style="flex:0 1 180px;margin-bottom:8px">
+              <label>شماره</label>
+              <input type="text" name="phone" value="{{this.phone}}" dir="ltr" style="text-align:right" required />
+            </div>
+            <div class="field" style="flex:0 1 100px;margin-bottom:8px">
+              <label>داخلی</label>
+              <input type="text" name="ext" value="{{this.ext}}" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="field" style="margin-bottom:8px">
+              <label>توضیح</label>
+              <input type="text" name="note" value="{{this.note}}" />
+            </div>
+            <div class="field" style="flex:0 1 220px;margin-bottom:8px">
+              <label>ایمیل</label>
+              <input type="text" name="email" value="{{this.email}}" dir="ltr" style="text-align:right" />
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-sm" type="submit">ذخیره</button>
+          </div>
+        </form>
+        <form method="post" action="/admin/phone-book/contacts/{{this.id}}/delete" class="inline" style="margin-top:6px"
+              onsubmit="return confirm('حذف این شماره؟');">
+          <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+        </form>
+      </div>
+      {{/each}}
+    </div>
+    {{else}}
+    <p class="muted">هنوز شماره‌ای برای این گروه افزوده نشده است.</p>
+    {{/if}}
+  </div>
+  {{/if}}
+</div>
+{{> foot}}
