@@ -1,0 +1,44 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">گروه‌ها — دسته‌بندی‌ها</h2>
+      <a class="btn btn-sm" href="/admin/groups/new">+ دسته‌بندی جدید</a>
+    </div>
+    <p class="muted">هر دسته‌بندی (مثل «کانال‌های رسمی») می‌تواند چند گروه/کانال داشته باشد و هر گروه چند راه عضویت (لینک، شناسه یا کد QR). برای مدیریت گروه‌های یک دسته، «ویرایش» را بزنید. دسته‌ها یا گروه‌های بدون راه عضویت در اپ نمایش داده نمی‌شوند.</p>
+
+    {{#if hasItems}}
+    <table>
+      <thead>
+        <tr><th>دسته‌بندی</th><th>تعداد گروه</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+        <tr>
+          <td><strong>{{title}}</strong></td>
+          <td class="muted">{{groupCount}} گروه</td>
+          <td>
+            {{#if isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">پنهان</span>{{/if}}
+          </td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/admin/groups/{{id}}/toggle" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">{{#if isPublished}}پنهان‌سازی{{else}}نمایش{{/if}}</button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href="/admin/groups/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/groups/{{id}}/delete" class="inline"
+                    onsubmit="return confirm('حذف این دسته‌بندی و همهٔ گروه‌های آن؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز دسته‌بندی‌ای ثبت نشده است. برای شروع، «دسته‌بندی جدید» را بزنید.</div>
+    {{/if}}
+  </div>
+</div>
+{{> foot}}

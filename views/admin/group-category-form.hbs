@@ -1,0 +1,97 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>{{#if isEdit}}ویرایش دسته‌بندی{{else}}دسته‌بندی جدید{{/if}}</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}">
+      <div class="row">
+        <div class="field">
+          <label>عنوان دسته‌بندی</label>
+          <input type="text" name="title" value="{{category.title}}" placeholder="مثلاً: کانال‌های رسمی" required />
+        </div>
+        <div class="field" style="flex:0 1 120px">
+          <label>ترتیب نمایش</label>
+          <input type="text" name="sortOrder" value="{{category.sortOrder}}" inputmode="numeric" placeholder="0" />
+          <div class="hint">کوچک‌تر = بالاتر.</div>
+        </div>
+      </div>
+
+      <label class="check">
+        <input type="checkbox" name="isPublished" {{#if category.isPublished}}checked{{/if}} />
+        نمایش در اپ (در غیر این صورت پنهان می‌ماند)
+      </label>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">{{#if isEdit}}ذخیرهٔ تغییرات{{else}}ایجاد دسته‌بندی{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin/groups">انصراف</a>
+      </div>
+    </form>
+  </div>
+
+  {{!-- Groups are managed once the category exists (nested forms are invalid HTML). --}}
+  {{#if isEdit}}
+  <div class="card">
+    <h2 style="margin-top:0">افزودن گروه/کانال</h2>
+    <form method="post" action="/admin/groups/{{category.id}}/groups">
+      <div class="row">
+        <div class="field">
+          <label>عنوان گروه/کانال</label>
+          <input type="text" name="title" value="{{groupForm.title}}" placeholder="مثلاً: انجمن علمی مهندسی کامپیوتر" required />
+        </div>
+        <div class="field" style="flex:0 1 160px">
+          <label>پلتفرم (اختیاری)</label>
+          <input type="text" name="platform" value="{{groupForm.platform}}" placeholder="تلگرام، واتساپ، ایتا…" />
+          <div class="hint">به‌صورت یک برچسب کوچک نمایش داده می‌شود.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>توضیح (اختیاری)</label>
+        <input type="text" name="description" value="{{groupForm.description}}" placeholder="مثلاً: کارگاه‌ها، مسابقات و فرصت‌های شغلی" />
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn" type="submit">افزودن و ادامه به راه‌های عضویت ←</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">گروه‌های این دسته</h2>
+    {{#if category.groups.length}}
+    <table>
+      <thead>
+        <tr><th>گروه</th><th>پلتفرم</th><th>راه عضویت</th><th>وضعیت</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{#each category.groups}}
+        <tr>
+          <td><strong>{{this.title}}</strong></td>
+          <td class="muted">{{#if this.platform}}<span class="pill">{{this.platform}}</span>{{else}}—{{/if}}</td>
+          <td class="muted">{{this.linkCount}} مورد</td>
+          <td>
+            {{#if this.isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">پنهان</span>{{/if}}
+          </td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/admin/groups/groups/{{this.id}}/toggle" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">{{#if this.isPublished}}پنهان‌سازی{{else}}نمایش{{/if}}</button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href="/admin/groups/groups/{{this.id}}/edit">ویرایش و راه‌های عضویت</a>
+              <form method="post" action="/admin/groups/groups/{{this.id}}/delete" class="inline"
+                    onsubmit="return confirm('حذف این گروه و همهٔ راه‌های عضویت آن؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="muted">هنوز گروهی به این دسته افزوده نشده است.</p>
+    {{/if}}
+  </div>
+  {{/if}}
+</div>
+{{> foot}}

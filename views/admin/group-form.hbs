@@ -1,0 +1,127 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">ویرایش گروه/کانال</h2>
+      <a class="btn btn-ghost btn-sm" href="{{backTo}}">→ بازگشت به دسته‌بندی</a>
+    </div>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}">
+      <div class="row">
+        <div class="field">
+          <label>عنوان گروه/کانال</label>
+          <input type="text" name="title" value="{{group.title}}" required />
+        </div>
+        <div class="field" style="flex:0 1 160px">
+          <label>پلتفرم (اختیاری)</label>
+          <input type="text" name="platform" value="{{group.platform}}" placeholder="تلگرام، واتساپ…" />
+        </div>
+        <div class="field" style="flex:0 1 120px">
+          <label>ترتیب نمایش</label>
+          <input type="text" name="sortOrder" value="{{group.sortOrder}}" inputmode="numeric" placeholder="0" />
+        </div>
+      </div>
+      <div class="field">
+        <label>توضیح (اختیاری)</label>
+        <input type="text" name="description" value="{{group.description}}" />
+      </div>
+
+      <label class="check">
+        <input type="checkbox" name="isPublished" {{#if group.isPublished}}checked{{/if}} />
+        نمایش در اپ (در غیر این صورت پنهان می‌ماند)
+      </label>
+
+      <div style="margin-top:18px">
+        <button class="btn" type="submit">ذخیرهٔ تغییرات</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">افزودن راه عضویت</h2>
+    <p class="muted">هر گروه می‌تواند چند راه عضویت داشته باشد: یک لینک عضویت، یک شناسه/کد قابل کپی، یا یک تصویر کد QR.</p>
+    <form method="post" action="/admin/groups/groups/{{group.id}}/links" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field" style="flex:0 1 240px">
+          <label>نوع</label>
+          <select name="kind" id="linkKind">
+            {{#each kindOptions}}
+            <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <div class="field">
+          <label>برچسب (اختیاری)</label>
+          <input type="text" name="label" value="{{linkForm.label}}" placeholder="مثلاً: کانال اصلی" />
+        </div>
+      </div>
+
+      <div class="field" id="field-url">
+        <label>لینک عضویت</label>
+        <input type="text" name="url" value="{{linkForm.url}}" dir="ltr" style="text-align:right" placeholder="https://t.me/example" />
+        <div class="hint">اگر بدون //:https وارد شود، خودکار افزوده می‌شود.</div>
+      </div>
+
+      <div class="field" id="field-handle" style="display:none">
+        <label>شناسه یا کد عضویت</label>
+        <input type="text" name="handle" value="{{linkForm.handle}}" dir="ltr" style="text-align:right" placeholder="@university_channel یا کد دعوت" />
+        <div class="hint">در اپ با یک لمس قابل کپی است.</div>
+      </div>
+
+      <div class="field" id="field-qr" style="display:none">
+        <label>تصویر کد QR</label>
+        <input type="file" name="qr" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <div class="hint">یک عکس (PNG، JPG، WebP یا GIF) از کد QR گروه.</div>
+      </div>
+
+      <div style="margin-top:8px">
+        <button class="btn" type="submit">افزودن راه عضویت</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">راه‌های عضویت فعلی</h2>
+    {{#if group.links.length}}
+    <div style="display:flex;flex-direction:column;gap:12px">
+      {{#each group.links}}
+      <div style="border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap">
+        <div style="min-width:0;flex:1 1 240px">
+          <div style="margin-bottom:4px"><span class="pill">{{this.kindLabel}}</span> {{#if this.label}}<strong style="margin-right:6px">{{this.label}}</strong>{{/if}}</div>
+          {{#if this.url}}<a href="{{this.url}}" target="_blank" rel="noopener" dir="ltr" style="word-break:break-all">{{this.url}}</a>{{/if}}
+          {{#if this.handle}}<code dir="ltr" style="word-break:break-all">{{this.handle}}</code>{{/if}}
+          {{#if this.hasQr}}<div style="margin-top:6px"><img src="{{this.qrUrl}}" alt="کد QR" style="width:96px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff" /></div>{{/if}}
+        </div>
+        <form method="post" action="/admin/groups/links/{{this.id}}/delete" class="inline"
+              onsubmit="return confirm('حذف این راه عضویت؟');">
+          <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+        </form>
+      </div>
+      {{/each}}
+    </div>
+    {{else}}
+    <p class="muted">هنوز راه عضویتی برای این گروه افزوده نشده است.</p>
+    {{/if}}
+  </div>
+</div>
+
+<script>
+  // Show only the payload field that matches the selected join-option kind.
+  (function () {
+    var kind = document.getElementById('linkKind');
+    var fields = { link: 'field-url', handle: 'field-handle', qr: 'field-qr' };
+    function sync() {
+      Object.keys(fields).forEach(function (k) {
+        var el = document.getElementById(fields[k]);
+        if (el) el.style.display = kind.value === k ? '' : 'none';
+      });
+    }
+    if (kind) {
+      kind.addEventListener('change', sync);
+      sync();
+    }
+  })();
+</script>
+{{> foot}}
