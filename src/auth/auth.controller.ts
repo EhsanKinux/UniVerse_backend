@@ -18,6 +18,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthResponseDto, UserDto } from './dto/auth-response.dto';
@@ -36,6 +37,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  // Much stricter than the global rate limit: 10 sign-ups per minute per IP is
+  // plenty for humans but stops scripted mass account creation.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Create a new account and receive a token pair' })
   @ApiCreatedResponse({ type: AuthResponseDto })
   @ApiConflictResponse({ description: 'Email already in use' })
@@ -44,6 +48,10 @@ export class AuthController {
   }
 
   @Post('login')
+  // The classic brute-force target: 10 attempts per minute per IP makes
+  // password guessing impractical while never bothering a real student
+  // (thanks to refresh tokens, logging in is a rare event anyway).
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   // POST normally returns 201 Created; for a login, 200 OK is more appropriate.
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -56,6 +64,9 @@ export class AuthController {
   }
 
   @Post('refresh')
+  // Every app open refreshes once, so this is roomier than login — but still
+  // capped, since each call costs a DB read + two JWT signatures.
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshGuard) // requires a valid REFRESH token in the header
   @ApiBearerAuth('refresh-token')
