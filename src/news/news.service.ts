@@ -70,6 +70,12 @@ const COUNT_INCLUDE = { _count: { select: { attachments: true } } };
 // keeps it healthy in the first place. The client ignores these.
 const HEARTBEAT_MS = 30_000;
 
+// The public list is CAPPED: news accumulates forever, and "return every row to
+// every visitor" is the classic query that's fine for months and then quietly
+// melts the server. Callers can ask for up to MAX via ?limit=.
+const DEFAULT_LIST_LIMIT = 50;
+const MAX_LIST_LIMIT = 100;
+
 @Injectable()
 export class NewsService {
   // The hub that fans news changes out to every connected SSE client. Each write
@@ -93,11 +99,19 @@ export class NewsService {
   // ---------------------------------------------------------------------------
 
   /** Published items only, pinned first then newest — the PWA carousel feed. */
-  async listPublished(): Promise<NewsDto[]> {
+  async listPublished(limit?: number): Promise<NewsDto[]> {
+    // Clamp whatever the caller sent into [1, MAX]; garbage falls back to the
+    // default. The query itself stays index-friendly either way.
+    const requested = Math.trunc(limit ?? DEFAULT_LIST_LIMIT);
+    const take = Number.isFinite(requested)
+      ? Math.min(Math.max(requested, 1), MAX_LIST_LIMIT)
+      : DEFAULT_LIST_LIMIT;
+
     const rows = await this.prisma.news.findMany({
       where: { isPublished: true },
       orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }],
       include: COUNT_INCLUDE,
+      take,
     });
     return rows.map((row) => this.toDto(row));
   }

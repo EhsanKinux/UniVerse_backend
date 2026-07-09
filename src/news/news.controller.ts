@@ -3,6 +3,7 @@ import {
   Get,
   type MessageEvent,
   Param,
+  ParseIntPipe,
   Query,
   Res,
   Sse,
@@ -12,6 +13,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -38,9 +40,16 @@ export class NewsController {
   @ApiOperation({
     summary: 'Published news/announcements (pinned first, then newest)',
   })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Max items to return (default 50, capped at 100).',
+  })
   @ApiOkResponse({ type: [NewsDto] })
-  list(): Promise<NewsDto[]> {
-    return this.news.listPublished();
+  list(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ): Promise<NewsDto[]> {
+    return this.news.listPublished(limit);
   }
 
   // @Sse marks this as a Server-Sent Events endpoint: NestJS keeps the HTTP
