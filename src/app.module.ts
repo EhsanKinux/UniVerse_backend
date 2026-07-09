@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
@@ -33,6 +35,15 @@ import { UsersModule } from './users/users.module';
     }),
     // Enables @Cron() decorators app-wide (the class-reminder job uses one).
     ScheduleModule.forRoot(),
+    // Rate limiting (per client IP, in memory). This global ceiling is a pure
+    // anti-abuse backstop — deliberately generous, because many students on
+    // campus Wi-Fi can share one public IP (NAT) and must not throttle each
+    // other. The endpoints that are actually worth attacking (login, register,
+    // refresh, admin login, push subscribe) carry much stricter @Throttle()
+    // overrides directly on their handlers.
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 1000 }],
+    }),
     PrismaModule, // database access (global)
     UsersModule, // user records
     AuthModule, // register / login / refresh / logout / me
@@ -48,6 +59,11 @@ import { UsersModule } from './users/users.module';
     AdminModule, // server-rendered staff panel at /admin
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Registering ThrottlerGuard as an APP_GUARD applies the rate limits above
+    // to EVERY route automatically; over-limit requests get a 429 response.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}
