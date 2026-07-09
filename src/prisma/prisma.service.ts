@@ -28,7 +28,13 @@ export class PrismaService
     // Prisma 7 talks to Postgres through a "driver adapter" (PrismaPg) instead
     // of a bundled binary engine. The adapter just needs our connection string.
     const connectionString = configService.getOrThrow<string>('DATABASE_URL');
-    const adapter = new PrismaPg({ connectionString });
+
+    // How many Postgres connections the pool may hold open at once. A
+    // connection is only occupied for the milliseconds a query runs, so 10
+    // (pg's default, made explicit + tunable here) comfortably serves thousands
+    // of users — raise DATABASE_POOL_MAX only if you SEE queries queueing.
+    const max = configService.get<number>('DATABASE_POOL_MAX') ?? 10;
+    const adapter = new PrismaPg({ connectionString, max });
 
     // `super` calls the PrismaClient constructor with our adapter.
     super({ adapter });
