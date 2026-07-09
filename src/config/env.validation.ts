@@ -15,6 +15,12 @@ import {
  * of crashing mysteriously on the first login attempt later.
  */
 class EnvironmentVariables {
+  // "production" flips the security posture: Swagger is hidden, and CORS stops
+  // reflecting arbitrary origins. Anything else (or unset) counts as development.
+  @IsOptional()
+  @IsString()
+  NODE_ENV?: string;
+
   // The "!" tells TypeScript "trust me, this will be assigned" — class-validator
   // fills these in. They are not optional from the app's point of view.
   @IsOptional()
@@ -31,6 +37,20 @@ class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;
+
+  // Max simultaneous Postgres connections in the pg pool (default 10). One Node
+  // process rarely needs more — connections are only held for the duration of a
+  // query — but it's tunable here without touching code.
+  @IsOptional()
+  @IsNumber()
+  DATABASE_POOL_MAX?: number;
+
+  // Set to "true" to serve the interactive Swagger docs at /docs even in
+  // production. By default the docs are on in development and OFF in production
+  // (they map out the whole API surface for anyone who finds them).
+  @IsOptional()
+  @IsString()
+  SWAGGER_ENABLED?: string;
 
   @IsString()
   @IsNotEmpty()
