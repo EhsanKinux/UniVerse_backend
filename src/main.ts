@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import session from 'express-session';
+import helmet from 'helmet';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import hbs from 'hbs';
@@ -16,6 +17,48 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+
+  // --- Graceful shutdown -------------------------------------------------------
+  // Without this, SIGTERM/SIGINT (Ctrl+C, docker stop, a deploy) kills the
+  // process instantly: in-flight requests are cut off and Prisma's
+  // onModuleDestroy never runs. With it, NestJS drains connections and closes
+  // the database pool cleanly before exiting.
+  app.enableShutdownHooks();
+
+  // --- Security headers (helmet) ----------------------------------------------
+  // Sets the standard protective headers on every response: X-Content-Type-
+  // Options (no MIME sniffing), X-Frame-Options (no clickjacking iframes),
+  // Strict-Transport-Security (HTTPS only, when served over HTTPS), and a
+  // Content-Security-Policy. The CSP only really matters for the HTML we render
+  // (the /admin panel and /docs); it's tuned to allow their inline
+  // styles/scripts and the jsdelivr CDN (Vazirmatn font + the Jalali
+  // date-picker) and nothing else.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          scriptSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          fontSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+          imgSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          // Auto-upgrade http:// subresources to https:// — right on the HTTPS
+          // production server, wrong on plain http://localhost in development
+          // (it would point the admin panel's forms at a non-existent
+          // https://localhost). null removes helmet's default.
+          upgradeInsecureRequests: isProduction ? [] : null,
+        },
+      },
+      // Our images/PDFs (news covers, QR codes, documents) may be embedded by
+      // the PWA from a different origin during development; the default
+      // same-origin policy would block that.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // --- Reverse-proxy awareness -----------------------------------------------
   // In production the PWA reaches this API through the Next.js server's
@@ -36,6 +79,11 @@ async function bootstrap() {
       cookie: {
         httpOnly: true, // the browser's JavaScript can't read this cookie
         sameSite: 'lax',
+        // 'auto' = mark the cookie Secure (HTTPS-only) whenever the request
+        // itself arrived over HTTPS. Works with `trust proxy` above, so behind
+        // an HTTPS reverse proxy the admin cookie can never leak over plain
+        // HTTP, while local http://localhost development keeps working.
+        secure: 'auto',
         maxAge: 1000 * 60 * 60 * 8, // sign back in after 8 hours
       },
     }),
@@ -83,30 +131,40 @@ async function bootstrap() {
           .split(',')
           .map((o) => o.trim())
           .filter(Boolean)
-      : true,
+      : // No explicit origins configured: reflect any origin in development
+        // (convenient), but in production allow NO cross-origin browser calls —
+        // reflecting arbitrary origins WITH credentials would let any website
+        // a user visits call this API from their browser.
+        !isProduction,
     credentials: true,
   });
 
   // --- Swagger / OpenAPI -----------------------------------------------------
-  // Generates interactive API documentation, served at /docs.
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('uni-verse API')
-    .setDescription('Backend API for the uni-verse PWA')
-    .setVersion('1.0')
-    // Two named "Authorize" boxes in the docs — one per token type.
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'access-token',
-    )
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'refresh-token',
-    )
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: { persistAuthorization: true }, // keep token across reloads
-  });
+  // Generates interactive API documentation, served at /docs. In production the
+  // docs are OFF by default (they hand anyone a complete map of the API);
+  // set SWAGGER_ENABLED=true to serve them anyway.
+  const swaggerEnabled =
+    !isProduction || configService.get<string>('SWAGGER_ENABLED') === 'true';
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('uni-verse API')
+      .setDescription('Backend API for the uni-verse PWA')
+      .setVersion('1.0')
+      // Two named "Authorize" boxes in the docs — one per token type.
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'access-token',
+      )
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'refresh-token',
+      )
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document, {
+      swaggerOptions: { persistAuthorization: true }, // keep token across reloads
+    });
+  }
 
   // --- Start listening -------------------------------------------------------
   const port = configService.get<number>('PORT') ?? 3001;
@@ -117,7 +175,9 @@ async function bootstrap() {
   await app.listen(port, host);
 
   console.log(`🚀 uni-verse API running on ${host}:${port}`);
-  console.log(`📚 Swagger docs at        http://localhost:${port}/docs`);
+  if (swaggerEnabled) {
+    console.log(`📚 Swagger docs at        http://localhost:${port}/docs`);
+  }
 }
 
 // `void` marks this floating promise as intentional (satisfies the linter).
