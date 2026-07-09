@@ -13,7 +13,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { CalendarService } from '../calendar/calendar.service';
 import {
   EVENT_CATEGORIES,
@@ -71,15 +73,22 @@ export class AdminController {
   }
 
   @Post('login')
+  // The admin login guards EVERYTHING staff can do, so it gets the strictest
+  // rate limit in the app: 5 attempts per minute per IP.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   login(
     @Body() dto: AdminLoginDto,
     @Req() req: Request,
     @Res() res: Response,
   ): void {
-    const usernameOk =
-      dto.username === this.config.getOrThrow<string>('ADMIN_USERNAME');
-    const passwordOk =
-      dto.password === this.config.getOrThrow<string>('ADMIN_PASSWORD');
+    const usernameOk = this.safeEquals(
+      dto.username ?? '',
+      this.config.getOrThrow<string>('ADMIN_USERNAME'),
+    );
+    const passwordOk = this.safeEquals(
+      dto.password ?? '',
+      this.config.getOrThrow<string>('ADMIN_PASSWORD'),
+    );
 
     if (!usernameOk || !passwordOk) {
       res.status(401).render('admin/login', {
@@ -89,8 +98,19 @@ export class AdminController {
       return;
     }
 
-    req.session.isAdmin = true;
-    res.redirect('/admin');
+    // Issue a FRESH session id on login (session fixation defence): any cookie
+    // the browser held before authenticating can never become an admin session.
+    req.session.regenerate((err) => {
+      if (err) {
+        res.status(500).render('admin/login', {
+          title: 'ورود',
+          error: 'خطایی رخ داد. دوباره تلاش کنید.',
+        });
+        return;
+      }
+      req.session.isAdmin = true;
+      res.redirect('/admin');
+    });
   }
 
   @Post('logout')
@@ -326,6 +346,19 @@ export class AdminController {
       event: params.event,
       error: params.error,
     };
+  }
+
+  /**
+   * Compare a submitted credential against the configured one in CONSTANT time.
+   * A plain `===` short-circuits at the first differing character, so response
+   * times leak how much of a guess was correct. Hashing both sides first gives
+   * two equal-length buffers (timingSafeEqual requires that), and the
+   * comparison then always takes the same time regardless of the input.
+   */
+  private safeEquals(submitted: string, expected: string): boolean {
+    const a = createHash('sha256').update(submitted).digest();
+    const b = createHash('sha256').update(expected).digest();
+    return timingSafeEqual(a, b);
   }
 
   /** Pull a human (Persian) message out of whatever the service threw. */
