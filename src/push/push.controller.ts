@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAccessGuard } from '../auth/guards/jwt-access-optional.guard';
@@ -42,6 +43,10 @@ export class PushController {
 
   @Post('subscribe')
   @HttpCode(201)
+  // This endpoint is open to anonymous callers and writes to the database, so
+  // cap it: one browser subscribes once per app open, so 30/min per IP is ample
+  // for real devices but stops scripts from flooding the subscriptions table.
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   // Optional auth: anonymous subscribes still work (news broadcasts); a valid
   // Bearer token additionally links the device to that user.
   @UseGuards(OptionalJwtAccessGuard)
@@ -67,6 +72,7 @@ export class PushController {
 
   @Post('unsubscribe')
   @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Remove a browser push subscription' })
   async unsubscribe(@Body() dto: PushUnsubscribeDto): Promise<{ ok: true }> {
     await this.push.removeSubscription(dto.endpoint);

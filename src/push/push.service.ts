@@ -131,6 +131,11 @@ export class PushService implements OnModuleInit {
    * Encrypt + send to the given subscriptions. Failures for an individual
    * device never block the others; subscriptions the push service reports as
    * gone (404/410) are pruned so the table self-cleans.
+   *
+   * Sends go out in BATCHES rather than all at once: with thousands of
+   * subscribers, a single Promise.all over everything would open thousands of
+   * simultaneous HTTPS connections and spike memory/sockets. 100 in flight at
+   * a time keeps a full broadcast fast (a few seconds) at a flat resource cost.
    */
   private async sendToSubscriptions(
     subs: SendableSubscription[],
@@ -138,32 +143,36 @@ export class PushService implements OnModuleInit {
   ): Promise<void> {
     if (subs.length === 0) return;
 
+    const BATCH_SIZE = 100;
     const body = JSON.stringify(payload);
     const stale: string[] = [];
 
-    await Promise.all(
-      subs.map(async (sub) => {
-        try {
-          await sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: { p256dh: sub.p256dh, auth: sub.auth },
-            },
-            body,
-          );
-        } catch (error) {
-          const statusCode = (error as { statusCode?: number }).statusCode;
-          // 404 Not Found / 410 Gone = the subscription no longer exists.
-          if (statusCode === 404 || statusCode === 410) {
-            stale.push(sub.endpoint);
-          } else {
-            this.logger.warn(
-              `Push send failed (${statusCode ?? 'network error'}).`,
+    for (let i = 0; i < subs.length; i += BATCH_SIZE) {
+      const batch = subs.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (sub) => {
+          try {
+            await sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: { p256dh: sub.p256dh, auth: sub.auth },
+              },
+              body,
             );
+          } catch (error) {
+            const statusCode = (error as { statusCode?: number }).statusCode;
+            // 404 Not Found / 410 Gone = the subscription no longer exists.
+            if (statusCode === 404 || statusCode === 410) {
+              stale.push(sub.endpoint);
+            } else {
+              this.logger.warn(
+                `Push send failed (${statusCode ?? 'network error'}).`,
+              );
+            }
           }
-        }
-      }),
-    );
+        }),
+      );
+    }
 
     if (stale.length > 0) {
       await this.prisma.pushSubscription.deleteMany({
