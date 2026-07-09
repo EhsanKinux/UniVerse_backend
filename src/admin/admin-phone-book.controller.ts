@@ -242,14 +242,31 @@ export class AdminPhoneBookController {
       const existing = await this.phoneBook
         .getGroupWithContacts(contact.groupId)
         .catch(() => null);
+      const group: GroupFormView = existing
+        ? this.toView(existing)
+        : { ...EMPTY_GROUP, id: contact.groupId, contacts: [] };
+      // Keep the values the staff member just typed in the row they were editing,
+      // so a validation error (e.g. a malformed email) doesn't silently revert
+      // their other changes back to what's stored — mirroring how the add-contact
+      // form re-fills itself via `contactForm`.
+      group.contacts = group.contacts?.map((row) =>
+        row.id === contactId
+          ? {
+              id: row.id,
+              name: dto.name ?? '',
+              phone: dto.phone ?? '',
+              ext: dto.ext ?? '',
+              note: dto.note ?? '',
+              email: dto.email ?? '',
+            }
+          : row,
+      );
       res.status(400).render(
         'admin/phone-book-form',
         this.formContext({
           mode: 'edit',
           action: `/admin/phone-book/${contact.groupId}`,
-          group: existing
-            ? this.toView(existing)
-            : { ...EMPTY_GROUP, id: contact.groupId, contacts: [] },
+          group,
           error: this.errorMessage(error),
         }),
       );
