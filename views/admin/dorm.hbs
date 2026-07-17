@@ -1,0 +1,143 @@
+{{> head}}
+<div class="container">
+
+  {{!-- Announcements --}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">📢 اطلاعیه‌های خوابگاه</h2>
+      <a class="btn btn-sm" href="/admin/dormitory/announcements/new">+ اطلاعیهٔ جدید</a>
+    </div>
+    <p class="muted" style="margin-top:-6px">اطلاعیهٔ منتشرشده به‌صورت اعلان سیستمی (Push) و اعلان درون‌برنامه به دانشجویان ارسال می‌شود.</p>
+
+    {{#if hasAnnouncements}}
+    <table>
+      <thead><tr><th>عنوان</th><th>دسته</th><th>تاریخ</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        {{#each announcements}}
+        <tr>
+          <td>
+            <strong>{{title}}</strong>
+            {{#if pinned}}<span class="pill">📌 سنجاق‌شده</span>{{/if}}
+          </td>
+          <td>{{categoryLabel}}</td>
+          <td class="muted">{{date}}</td>
+          <td>{{#if isPublished}}<span class="badge current">منتشرشده</span>{{else}}<span class="badge past">پیش‌نویس</span>{{/if}}</td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/admin/dormitory/announcements/{{id}}/toggle" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">{{#if isPublished}}لغو انتشار{{else}}انتشار{{/if}}</button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href="/admin/dormitory/announcements/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/dormitory/announcements/{{id}}/delete" class="inline" onsubmit="return confirm('حذف این اطلاعیه؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز اطلاعیه‌ای ثبت نشده است.</div>
+    {{/if}}
+  </div>
+
+  {{!-- Rules --}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">📜 قوانین و مقررات</h2>
+      <a class="btn btn-sm" href="/admin/dormitory/info/new?section=rules">+ افزودن قانون</a>
+    </div>
+    {{#if hasRules}}
+    <table>
+      <thead><tr><th style="width:60px">ترتیب</th><th>عنوان</th><th>توضیح</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        {{#each rules}}
+        <tr>
+          <td class="muted">{{sortOrder}}</td>
+          <td><strong>{{title}}</strong></td>
+          <td class="muted">{{detail}}</td>
+          <td>{{#if isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">مخفی</span>{{/if}}</td>
+          <td>
+            <div class="actions">
+              <a class="btn btn-ghost btn-sm" href="/admin/dormitory/info/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/dormitory/info/{{id}}/delete" class="inline" onsubmit="return confirm('حذف این مورد؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز قانونی ثبت نشده است.</div>
+    {{/if}}
+  </div>
+
+  {{!-- Facilities --}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">🕒 امکانات و ساعات کاری</h2>
+      <a class="btn btn-sm" href="/admin/dormitory/info/new?section=facilities">+ افزودن امکان</a>
+    </div>
+    {{#if hasFacilities}}
+    <table>
+      <thead><tr><th style="width:60px">ترتیب</th><th>نام</th><th>ساعت کاری / توضیح</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        {{#each facilities}}
+        <tr>
+          <td class="muted">{{sortOrder}}</td>
+          <td><strong>{{title}}</strong></td>
+          <td class="muted">{{detail}}</td>
+          <td>{{#if isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">مخفی</span>{{/if}}</td>
+          <td>
+            <div class="actions">
+              <a class="btn btn-ghost btn-sm" href="/admin/dormitory/info/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/dormitory/info/{{id}}/delete" class="inline" onsubmit="return confirm('حذف این مورد؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز امکاناتی ثبت نشده است.</div>
+    {{/if}}
+  </div>
+
+  {{!-- Forms --}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">🧾 فرم‌ها و مدارک</h2>
+      <a class="btn btn-sm" href="/admin/dormitory/forms/new">+ بارگذاری فرم</a>
+    </div>
+    {{#if hasForms}}
+    <table>
+      <thead><tr><th style="width:60px">ترتیب</th><th>عنوان</th><th>توضیح</th><th>حجم</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        {{#each forms}}
+        <tr>
+          <td class="muted">{{sortOrder}}</td>
+          <td><strong><a href="/dorm/forms/file/{{id}}" target="_blank" rel="noopener">{{title}}</a></strong></td>
+          <td class="muted">{{description}}</td>
+          <td class="muted">{{sizeLabel}}</td>
+          <td>{{#if isPublished}}<span class="badge current">نمایش</span>{{else}}<span class="badge past">مخفی</span>{{/if}}</td>
+          <td>
+            <form method="post" action="/admin/dormitory/forms/{{id}}/delete" class="inline" onsubmit="return confirm('حذف این فرم؟');">
+              <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+            </form>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز فرمی بارگذاری نشده است.</div>
+    {{/if}}
+  </div>
+
+</div>
+{{> foot}}

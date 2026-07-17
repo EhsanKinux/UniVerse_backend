@@ -1,0 +1,38 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>{{#if isEdit}}ویرایش{{else}}افزودن به{{/if}} «{{sectionLabel}}»</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}">
+      <input type="hidden" name="section" value="{{section}}" />
+
+      <div class="row">
+        <div class="field">
+          <label>عنوان</label>
+          <input type="text" name="title" value="{{item.title}}" placeholder="مثلاً «رختشویخانه» یا متن قانون" required />
+        </div>
+        <div class="field" style="flex:0 1 120px">
+          <label>ترتیب نمایش</label>
+          <input type="text" name="sortOrder" value="{{item.sortOrder}}" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>توضیح / ساعت کاری (اختیاری)</label>
+        <input type="text" name="detail" value="{{item.detail}}" placeholder="مثلاً «همه‌روزه ۸ تا ۲۲» یا توضیح تکمیلی" />
+      </div>
+
+      <div class="row" style="gap:20px">
+        <label class="check"><input type="checkbox" name="isPublished" {{#if item.isPublished}}checked{{/if}} /> نمایش در اپ</label>
+      </div>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">{{#if isEdit}}ذخیرهٔ تغییرات{{else}}افزودن{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin/dormitory">انصراف</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{> foot}}

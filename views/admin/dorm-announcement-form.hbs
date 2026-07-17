@@ -1,0 +1,104 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>{{#if isEdit}}ویرایش اطلاعیه{{else}}اطلاعیهٔ جدید خوابگاه{{/if}}</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field" style="flex:0 1 220px">
+          <label>دسته</label>
+          <select name="category" required>
+            {{#each categoryOptions}}
+            <option value="{{value}}" {{#if (eq value ../item.category)}}selected{{/if}}>{{label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <div class="field">
+          <label>عنوان</label>
+          <input type="text" name="title" value="{{item.title}}" placeholder="عنوان اطلاعیه" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>متن اطلاعیه</label>
+        <textarea name="body" rows="6" placeholder="متن کامل اطلاعیه. از Markdown پشتیبانی می‌شود: **پررنگ**، فهرست با - ، [لینک](https://…)" required>{{item.body}}</textarea>
+        <div class="hint">قالب‌بندی Markdown پشتیبانی می‌شود (پاراگراف، پررنگ، فهرست، لینک).</div>
+      </div>
+
+      <div class="field">
+        <label>تصویر شاخص (اختیاری)</label>
+        <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <div class="hint">
+          یک عکس (PNG، JPG، WebP، GIF)، حداکثر ۲۰ مگابایت.
+          {{#if item.hasCover}}<strong>یک تصویر شاخص هم‌اکنون تنظیم شده است؛ آپلود عکس جدید آن را جایگزین می‌کند.</strong>{{/if}}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>فایل‌های پیوست (اختیاری)</label>
+        <input type="file" name="files" multiple accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
+        <div class="hint">می‌توانید چند فایل انتخاب کنید (PDF، عکس، Word/Excel/PowerPoint). فایل‌های جدید به پیوست‌های فعلی افزوده می‌شوند.</div>
+      </div>
+
+      <div class="field">
+        <label>لینک «مشاهدهٔ بیشتر» (اختیاری)</label>
+        <input type="text" name="link" value="{{item.link}}" placeholder="https://…  یا  /calendar" />
+        <div class="hint">می‌تواند یک نشانی خارجی یا یک مسیر داخلی اپ باشد.</div>
+      </div>
+
+      <div class="row" style="gap:20px">
+        <label class="check"><input type="checkbox" name="pinned" {{#if item.pinned}}checked{{/if}} /> سنجاق به ابتدای فهرست</label>
+        <label class="check"><input type="checkbox" name="isPublished" {{#if item.isPublished}}checked{{/if}} /> منتشر شود (اعلان به دانشجویان ارسال شود)</label>
+      </div>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">{{#if isEdit}}ذخیرهٔ تغییرات{{else}}ایجاد و ارسال اعلان{{/if}}</button>
+        <a class="btn btn-ghost" href="/admin/dormitory">انصراف</a>
+      </div>
+    </form>
+  </div>
+
+  {{!-- Managing existing files lives OUTSIDE the main form (nested forms are invalid HTML). --}}
+  {{#if isEdit}}
+  <div class="card">
+    <h2 style="margin-top:0">فایل‌های فعلی</h2>
+
+    <h3>تصویر شاخص</h3>
+    {{#if item.hasCover}}
+    <div class="row" style="align-items:center;gap:12px">
+      <a href="/dorm/announcements/{{item.id}}/cover" target="_blank" rel="noopener">مشاهدهٔ تصویر شاخص</a>
+      <form method="post" action="/admin/dormitory/announcements/{{item.id}}/cover/delete" class="inline" onsubmit="return confirm('حذف تصویر شاخص؟');">
+        <button class="btn btn-danger btn-sm" type="submit">حذف تصویر</button>
+      </form>
+    </div>
+    {{else}}
+    <p class="muted">تصویری تنظیم نشده است.</p>
+    {{/if}}
+
+    <h3 style="margin-top:18px">پیوست‌ها</h3>
+    {{#if item.attachments.length}}
+    <table>
+      <thead><tr><th>فایل</th><th>حجم</th><th></th></tr></thead>
+      <tbody>
+        {{#each item.attachments}}
+        <tr>
+          <td><a href="/dorm/announcements/file/{{this.id}}" target="_blank" rel="noopener">{{this.originalName}}</a></td>
+          <td class="muted">{{this.sizeLabel}}</td>
+          <td>
+            <form method="post" action="/admin/dormitory/announcements/{{../item.id}}/attachments/{{this.id}}/delete" class="inline" onsubmit="return confirm('حذف این پیوست؟');">
+              <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+            </form>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="muted">هیچ پیوستی افزوده نشده است.</p>
+    {{/if}}
+  </div>
+  {{/if}}
+</div>
+{{> foot}}
