@@ -808,3 +808,181 @@ model PushSubscription {
   @@index([userId])
   @@map("push_subscriptions")
 }
+
+// =============================================================================
+// DORMITORY (خوابگاه)
+// A self-contained hub for the student dorm, managed by dorm staff from /admin.
+// It replaced the old static «حذف و اضافه» page. Four independent pieces make up
+// the hub, deliberately kept in their own tables so each is edited on its own and
+// none blocks the others:
+//
+//   • DormAnnouncement — the اطلاعیه‌های خوابگاه feed. Modelled exactly like News
+//     (cover + attachments + pinned + publish) and, like News, it fans a new item
+//     out as an OS Web Push AND an in-app SSE toast/bell entry. It is a SEPARATE
+//     model from News on purpose: dorm posts stay on the dorm page and never mix
+//     into the home carousel or the main /news feed.
+//   • DormInfoItem — the قوانین و مقررات and امکانات و ساعات کاری lists. One table
+//     serves BOTH, keyed by a `section` slug ("rules" | "facilities"), the same
+//     "one generic table, a slug per list" idea used elsewhere for categories.
+//   • DormForm — the فرم‌ها و مدارک library: a flat list of downloadable files
+//     (تسویه‌حساب، تعهدنامه، …). "Files on disk, metadata in DB", like Document —
+//     but a plain published list, since dorm forms are all available at once
+//     rather than one-active-per-category.
+// =============================================================================
+
+// One dorm announcement/notice — the shape the PWA renders as a card and, when
+// freshly published, pushes to every device. Mirrors the News model field-for-
+// field so the service/DTO/admin logic can follow the proven news pattern.
+model DormAnnouncement {
+  id String @id @default(cuid())
+
+  // The headline shown on the card.
+  title String
+
+  // A coarse category that drives the badge. Plain string, validated in the DTO
+  // against a known set, so adding one needs no migration.
+  // Known values: general | facility | financial | event | maintenance
+  category String
+
+  // The announcement text — the card's body / description (Markdown).
+  body String
+
+  // OPTIONAL "read more" URL (an internal route or an external link). null = none.
+  link String?
+
+  // ---- Cover image (تصویر شاخص) ----
+  // OPTIONAL hero image; only metadata lives here, the bytes live on disk under a
+  // random name in the shared uploads/ folder (same pattern as News). null = none.
+  coverStoredName String?
+  coverMimeType   String?
+
+  // The downloadable files staff attach (بخشنامه، فرم، …). Cascade is declared on
+  // the attachment side, so deleting an announcement removes its attachment rows
+  // (the on-disk files are unlinked in DormService.removeAnnouncement).
+  attachments DormAnnouncementAttachment[]
+
+  // Drafts (isPublished=false) are hidden from the public API; pinned items sort
+  // ahead of the rest in the feed.
+  isPublished Boolean @default(true)
+  pinned      Boolean @default(false)
+
+  // When the item counts as "published" — the date shown on the card. Kept
+  // SEPARATE from createdAt so it can be back/post-dated without muddling audit
+  // timestamps (again mirroring News).
+  publishedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by pinned + publishedAt.
+  @@index([isPublished, pinned, publishedAt])
+  @@map("dorm_announcements")
+}
+
+// One file attached to a dorm announcement. Mirrors NewsAttachment: the BYTES
+// live on disk under a random name in the shared uploads/ folder, only this
+// lightweight metadata row lives in the database.
+model DormAnnouncementAttachment {
+  id String @id @default(cuid())
+
+  // The owning announcement. Cascade = deleting it removes its attachment rows.
+  announcementId String
+  announcement   DormAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  // The name we saved the file under on disk (a random cuid + extension). We never
+  // reuse the user's filename for the on-disk path — it could collide or contain
+  // unsafe path characters.
+  storedName String
+
+  // The original name the staff member's file had, e.g. «تعهدنامه.pdf». Shown in
+  // the UI and used as the suggested filename when a student downloads it.
+  originalName String
+
+  // The file's MIME type; lets the download endpoint send the right Content-Type
+  // and the UI pick a file-type icon.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is ~20MB). Shown formatted.
+  size Int
+
+  // Tie-breaker so attachments render in the order staff uploaded them.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  // We always fetch attachments by their announcement, so index that column.
+  @@index([announcementId])
+  @@map("dorm_announcement_attachments")
+}
+
+// One row of the قوانین و مقررات OR امکانات و ساعات کاری list. A single table
+// serves both, keyed by `section`; the two lists have the same shape (a heading
+// line + an optional detail line), so there's no reason to split them.
+model DormInfoItem {
+  id String @id @default(cuid())
+
+  // Which list this row belongs to: "rules" | "facilities". A plain string
+  // validated in the service against a known set (DORM_INFO_SECTIONS), so adding
+  // a future section (e.g. "faq") needs NO migration.
+  section String
+
+  // The main line: the rule text, or the facility name (e.g. «رختشویخانه»).
+  title String
+
+  // OPTIONAL secondary line: a rule's elaboration, or a facility's hours/notes
+  // (e.g. «همه‌روزه ۸ تا ۲۲»). null = show just the title.
+  detail String?
+
+  // Manual ordering within a section (lower = higher up). Staff reorder in the
+  // admin; ties fall back to createdAt.
+  sortOrder Int @default(0)
+
+  // Hidden rows stay in the DB but drop out of the public API.
+  isPublished Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by section + isPublished and orders by sortOrder.
+  @@index([section, isPublished, sortOrder])
+  @@map("dorm_info_items")
+}
+
+// One downloadable dorm form/document — a flat published list (unlike Document's
+// one-active-per-category shape, dorm forms are all available at once). The file
+// BYTES live on disk under a random name in the shared uploads/ folder; only this
+// metadata lives in the database.
+model DormForm {
+  id String @id @default(cuid())
+
+  // The Persian title shown to students, e.g. «فرم تسویه‌حساب خوابگاه».
+  title String
+
+  // OPTIONAL smaller note shown under the title. null = none.
+  description String?
+
+  // The name we saved the file under on disk (a random cuid + extension).
+  storedName String
+
+  // The original filename; the suggested name when a student downloads it.
+  originalName String
+
+  // The file's MIME type; lets the download endpoint send the right Content-Type.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is ~20MB). Shown formatted.
+  size Int
+
+  // Manual ordering of the list (lower = higher up). Ties fall back to createdAt.
+  sortOrder Int @default(0)
+
+  // Hidden forms stay in the DB but drop out of the public API.
+  isPublished Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by sortOrder.
+  @@index([isPublished, sortOrder])
+  @@map("dorm_forms")
+}

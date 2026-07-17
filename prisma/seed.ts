@@ -203,6 +203,30 @@ const GROUP_CATEGORIES: SeedGroupCategory[] = [
   },
 ];
 
+// Starting content for the خوابگاه hub's قوانین and امکانات lists. Staff own these
+// after the first run, so the seed only fills an EMPTY table (same guard as the
+// phone directory). `detail` is the optional secondary line (hours / elaboration).
+interface SeedDormInfo {
+  title: string;
+  detail?: string;
+}
+
+const DORM_RULES: SeedDormInfo[] = [
+  { title: 'ساعت ورود و خروج', detail: 'تردد شبانه پس از ساعت ۲۳ منوط به هماهنگی با سرپرست است.' },
+  { title: 'ورود مهمان', detail: 'اقامت مهمان تنها با مجوز کتبی سرپرست خوابگاه امکان‌پذیر است.' },
+  { title: 'حفظ نظافت و اموال', detail: 'نگهداری از اموال اتاق و رعایت نظافت فضاهای عمومی بر عهدهٔ ساکنان است.' },
+  { title: 'استعمال دخانیات', detail: 'استعمال دخانیات در تمام فضاهای خوابگاه ممنوع است.' },
+  { title: 'رعایت سکوت', detail: 'از ساعت ۲۳ تا ۷ بامداد سکوت رعایت شود.' },
+];
+
+const DORM_FACILITIES: SeedDormInfo[] = [
+  { title: 'سلف و آبدارخانه', detail: 'صبحانه ۷ تا ۹ · شام ۱۹ تا ۲۱' },
+  { title: 'رختشویخانه', detail: 'همه‌روزه ۸ تا ۲۲' },
+  { title: 'سالن مطالعه', detail: 'شبانه‌روزی' },
+  { title: 'نمازخانه', detail: 'شبانه‌روزی' },
+  { title: 'اینترنت و Wi-Fi', detail: 'در تمام بلوک‌ها' },
+];
+
 // Rows transcribed from the notice, top to bottom.
 const EVENTS: SeedEvent[] = [
   { title: 'انتخاب واحد', cohort: 'ورودی ۴۰۲ و ماقبل', category: 'registration', start: '1404/11/26' },
@@ -254,6 +278,7 @@ async function main(): Promise<void> {
   await seedChartDepartments();
   await seedContactGroups();
   await seedGroups();
+  await seedDormInfo();
 }
 
 /**
@@ -374,6 +399,39 @@ async function seedGroups(): Promise<void> {
   const groupCount = GROUP_CATEGORIES.reduce((s, c) => s + c.groups.length, 0);
   console.log(
     `✅ Seeded ${GROUP_CATEGORIES.length} group categories with ${groupCount} groups (manage from /admin/groups).`,
+  );
+}
+
+/**
+ * Seed the خوابگاه قوانین + امکانات lists ONLY when they're still empty — the rows
+ * are staff-owned after the first run, so we never overwrite their edits on a
+ * re-seed (same empty-table guard as the phone directory and groups). The
+ * announcements and forms are left empty on purpose (staff post those live).
+ */
+async function seedDormInfo(): Promise<void> {
+  const existing = await prisma.dormInfoItem.count();
+  if (existing > 0) {
+    console.log(`↷ Skipped dorm info seed (${existing} item(s) already exist).`);
+    return;
+  }
+
+  const rows = [
+    ...DORM_RULES.map((r, i) => ({ ...r, section: 'rules', sortOrder: i })),
+    ...DORM_FACILITIES.map((f, i) => ({ ...f, section: 'facilities', sortOrder: i })),
+  ];
+
+  await prisma.dormInfoItem.createMany({
+    data: rows.map((r) => ({
+      section: r.section,
+      title: r.title,
+      detail: r.detail ?? null,
+      sortOrder: r.sortOrder,
+      isPublished: true,
+    })),
+  });
+
+  console.log(
+    `✅ Seeded ${DORM_RULES.length} dorm rules + ${DORM_FACILITIES.length} facilities (manage from /admin/dormitory).`,
   );
 }
 
