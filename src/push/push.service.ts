@@ -158,6 +158,13 @@ export class PushService implements OnModuleInit {
                 keys: { p256dh: sub.p256dh, auth: sub.auth },
               },
               body,
+              {
+                // Let the push service hold the message for a day if the device
+                // is offline, and ask it to wake the device promptly (matters
+                // for delivery under Android Doze).
+                TTL: 24 * 60 * 60,
+                urgency: 'high',
+              },
             );
           } catch (error) {
             const statusCode = (error as { statusCode?: number }).statusCode;
@@ -165,8 +172,20 @@ export class PushService implements OnModuleInit {
             if (statusCode === 404 || statusCode === 410) {
               stale.push(sub.endpoint);
             } else {
+              // Include the push service's host + response body: it says WHY
+              // (413 payload too large, 401/403 VAPID mismatch, network block).
+              const host = (() => {
+                try {
+                  return new URL(sub.endpoint).host;
+                } catch {
+                  return 'unknown-host';
+                }
+              })();
+              const detail =
+                (error as { body?: string }).body?.trim().slice(0, 200) ||
+                (error as Error).message;
               this.logger.warn(
-                `Push send failed (${statusCode ?? 'network error'}).`,
+                `Push send failed (${statusCode ?? 'network error'}) via ${host}${detail ? `: ${detail}` : ''}`,
               );
             }
           }

@@ -390,10 +390,21 @@ export class NewsService {
     this.events$.next({ type: 'created', item });
     void this.push.sendToAll({
       title: item.title,
-      body: item.body,
+      // Push payloads are capped (~4 KB after encryption); a long article body
+      // would get the WHOLE send rejected with 413. The notification only needs
+      // a teaser — tapping it opens the full item.
+      body: this.toPushBody(item.body),
       url: `/news/${item.id}`,
       tag: `news-${item.id}`,
     });
+  }
+
+  /** First ~180 chars of the body, for the OS notification preview. */
+  private toPushBody(body: string): string {
+    const MAX = 180;
+    const text = body.trim();
+    if (text.length <= MAX) return text;
+    return `${text.slice(0, MAX - 1).trimEnd()}…`;
   }
 
   /** Validate + normalise the text form input into a Prisma data object. */
