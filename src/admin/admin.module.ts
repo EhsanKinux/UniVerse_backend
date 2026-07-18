@@ -6,6 +6,7 @@ import { ChartModule } from '../chart/chart.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { createMulterOptions } from '../documents/upload.config';
 import { DormModule } from '../dorm/dorm.module';
+import { FoodModule } from '../food/food.module';
 import { GroupsModule } from '../groups/groups.module';
 import { NewsModule } from '../news/news.module';
 import { PhoneBookModule } from '../phone-book/phone-book.module';
@@ -15,6 +16,7 @@ import { AdminController } from './admin.controller';
 import { AdminChartController } from './admin-chart.controller';
 import { AdminDocumentsController } from './admin-documents.controller';
 import { AdminDormController } from './admin-dorm.controller';
+import { AdminFoodController } from './admin-food.controller';
 import { AdminGroupsController } from './admin-groups.controller';
 import { AdminNewsController } from './admin-news.controller';
 import { AdminPhoneBookController } from './admin-phone-book.controller';
@@ -37,6 +39,7 @@ import { AdminGuard } from './admin.guard';
     ChartModule,
     DocumentsModule,
     DormModule,
+    FoodModule,
     GroupsModule,
     NewsModule,
     PhoneBookModule,
@@ -51,6 +54,7 @@ import { AdminGuard } from './admin.guard';
     AdminChartController,
     AdminDocumentsController,
     AdminDormController,
+    AdminFoodController,
     AdminGroupsController,
     AdminNewsController,
     AdminPhoneBookController,
