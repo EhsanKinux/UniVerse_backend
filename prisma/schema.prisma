@@ -986,3 +986,144 @@ model DormForm {
   @@index([isPublished, sortOrder])
   @@map("dorm_forms")
 }
+
+// =============================================================================
+// FOOD (تغذیه)
+// The غذای هفته page could not integrate with the university's food-reservation
+// system (no API access), so the section was rebuilt as an information hub run
+// by cafeteria staff from /admin/food:
+//
+//   • FoodMenuFile — the weekly menu as a staff-uploaded file (image or PDF).
+//     Staff upload a new file each week; the public API serves the NEWEST
+//     published row as "this week's menu", older rows stay as history. "Files on
+//     disk, metadata in DB", exactly like DormForm.
+//   • FoodAnnouncement — the اطلاعیه‌های تغذیه feed (self-service closures, price
+//     changes, menu updates …). Modelled exactly like DormAnnouncement/News:
+//     cover + attachments + pinned + publish, and a new item fans out as an OS
+//     Web Push AND an in-app SSE toast/bell entry. Kept SEPARATE from News on
+//     purpose: food posts stay on the food page and never mix into /news.
+//
+// The page's third piece — the nearby-places map — has NO table here on purpose:
+// places come live from OpenStreetMap (Overpass API) through a caching proxy in
+// FoodService, so there is nothing for staff to maintain.
+// =============================================================================
+
+// One food announcement/notice — the shape the PWA renders as a card and, when
+// freshly published, pushes to every device. Mirrors DormAnnouncement field-for-
+// field so the service/DTO/admin logic can follow the proven pattern.
+model FoodAnnouncement {
+  id String @id @default(cuid())
+
+  // The headline shown on the card.
+  title String
+
+  // A coarse category that drives the badge. Plain string, validated in the DTO
+  // against a known set, so adding one needs no migration.
+  // Known values: general | menu | hours | event | closure
+  category String
+
+  // The announcement text — the card's body / description (Markdown).
+  body String
+
+  // OPTIONAL "read more" URL (an internal route or an external link). null = none.
+  link String?
+
+  // ---- Cover image (تصویر شاخص) ----
+  // OPTIONAL hero image; only metadata lives here, the bytes live on disk under a
+  // random name in the shared uploads/ folder (same pattern as News). null = none.
+  coverStoredName String?
+  coverMimeType   String?
+
+  // The downloadable files staff attach (منوی کامل، اطلاعیه رسمی، …). Cascade is
+  // declared on the attachment side, so deleting an announcement removes its
+  // attachment rows (the on-disk files are unlinked in FoodService).
+  attachments FoodAnnouncementAttachment[]
+
+  // Drafts (isPublished=false) are hidden from the public API; pinned items sort
+  // ahead of the rest in the feed.
+  isPublished Boolean @default(true)
+  pinned      Boolean @default(false)
+
+  // When the item counts as "published" — the date shown on the card. Kept
+  // SEPARATE from createdAt so it can be back/post-dated without muddling audit
+  // timestamps (again mirroring News).
+  publishedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public list filters by isPublished and orders by pinned + publishedAt.
+  @@index([isPublished, pinned, publishedAt])
+  @@map("food_announcements")
+}
+
+// One file attached to a food announcement. Mirrors DormAnnouncementAttachment:
+// the BYTES live on disk under a random name in the shared uploads/ folder, only
+// this lightweight metadata row lives in the database.
+model FoodAnnouncementAttachment {
+  id String @id @default(cuid())
+
+  // The owning announcement. Cascade = deleting it removes its attachment rows.
+  announcementId String
+  announcement   FoodAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  // The name we saved the file under on disk (a random cuid + extension). We never
+  // reuse the user's filename for the on-disk path — it could collide or contain
+  // unsafe path characters.
+  storedName String
+
+  // The original name the staff member's file had, e.g. «منوی-مهر.pdf». Shown in
+  // the UI and used as the suggested filename when a student downloads it.
+  originalName String
+
+  // The file's MIME type; lets the download endpoint send the right Content-Type
+  // and the UI pick a file-type icon.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is ~20MB). Shown formatted.
+  size Int
+
+  // Tie-breaker so attachments render in the order staff uploaded them.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  // We always fetch attachments by their announcement, so index that column.
+  @@index([announcementId])
+  @@map("food_announcement_attachments")
+}
+
+// One uploaded weekly menu file (image or PDF). The public API serves the NEWEST
+// published row as the current منوی هفته; older rows remain as browsable history
+// in the admin panel until staff delete them.
+model FoodMenuFile {
+  id String @id @default(cuid())
+
+  // OPTIONAL Persian label naming the menu's week, e.g. «هفتهٔ سوم مهر».
+  // null = the card just says «منوی این هفته».
+  weekLabel String?
+
+  // The name we saved the file under on disk (a random cuid + extension).
+  storedName String
+
+  // The original filename; the suggested name when a student downloads it.
+  originalName String
+
+  // The file's MIME type; the PWA renders images inline and offers PDFs as a
+  // view/download card.
+  mimeType String
+
+  // File size in bytes (Int is ample — the upload cap is ~20MB). Shown formatted.
+  size Int
+
+  // Hidden rows stay in the DB but drop out of the public API — lets staff stage
+  // next week's menu before publishing it.
+  isPublished Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The public read is "newest published", so index exactly that.
+  @@index([isPublished, createdAt])
+  @@map("food_menu_files")
+}
