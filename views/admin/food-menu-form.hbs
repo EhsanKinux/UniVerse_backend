@@ -1,0 +1,32 @@
+{{> head}}
+<div class="container">
+  <div class="card">
+    <h2>بارگذاری منوی هفته</h2>
+
+    {{#if error}}<div class="alert alert-error">{{error}}</div>{{/if}}
+
+    <form method="post" action="{{action}}" enctype="multipart/form-data">
+      <div class="field">
+        <label>عنوان هفته (اختیاری)</label>
+        <input type="text" name="weekLabel" value="{{item.weekLabel}}" placeholder="مثلاً «هفتهٔ سوم مهر»" />
+        <div class="hint">اگر خالی بماند، کارت دانشجو فقط «منوی این هفته» را نشان می‌دهد.</div>
+      </div>
+
+      <div class="field">
+        <label>فایل منو</label>
+        <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif,.pdf" required />
+        <div class="hint">عکس (PNG، JPG، WebP) یا PDF، حداکثر ۲۰ مگابایت. عکس‌ها مستقیم داخل اپ نمایش داده می‌شوند.</div>
+      </div>
+
+      <div class="row" style="gap:20px">
+        <label class="check"><input type="checkbox" name="isPublished" checked /> نمایش در اپ (به‌عنوان منوی فعلی)</label>
+      </div>
+
+      <div style="margin-top:18px;display:flex;gap:8px">
+        <button class="btn" type="submit">بارگذاری</button>
+        <a class="btn btn-ghost" href="/admin/food">انصراف</a>
+      </div>
+    </form>
+  </div>
+</div>
+{{> foot}}

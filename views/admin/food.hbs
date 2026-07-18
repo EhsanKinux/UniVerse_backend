@@ -1,0 +1,88 @@
+{{> head}}
+<div class="container">
+
+  {{!-- Weekly menu --}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">🍽️ منوی هفته</h2>
+      <a class="btn btn-sm" href="/admin/food/menu/new">+ بارگذاری منوی جدید</a>
+    </div>
+    <p class="muted" style="margin-top:-6px">جدیدترین منوی منتشرشده به‌عنوان «منوی این هفته» به دانشجویان نمایش داده می‌شود؛ ردیف‌های قدیمی‌تر فقط تاریخچه‌اند.</p>
+
+    {{#if hasMenus}}
+    <table>
+      <thead><tr><th>هفته</th><th>فایل</th><th>حجم</th><th>تاریخ بارگذاری</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        {{#each menus}}
+        <tr>
+          <td>
+            <strong>{{#if weekLabel}}{{weekLabel}}{{else}}—{{/if}}</strong>
+            {{#if isCurrent}}<span class="pill">✅ منوی فعلی</span>{{/if}}
+          </td>
+          <td><a href="/food/menu/file/{{id}}" target="_blank" rel="noopener">{{originalName}}</a></td>
+          <td class="muted">{{sizeLabel}}</td>
+          <td class="muted">{{date}}</td>
+          <td>{{#if isPublished}}<span class="badge current">منتشرشده</span>{{else}}<span class="badge past">مخفی</span>{{/if}}</td>
+          <td>
+            <form method="post" action="/admin/food/menu/{{id}}/delete" class="inline" onsubmit="return confirm('حذف این منو؟');">
+              <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+            </form>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز منویی بارگذاری نشده است.</div>
+    {{/if}}
+  </div>
+
+  {{!-- Announcements --}}
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">📢 اطلاعیه‌های تغذیه</h2>
+      <a class="btn btn-sm" href="/admin/food/announcements/new">+ اطلاعیهٔ جدید</a>
+    </div>
+    <p class="muted" style="margin-top:-6px">اطلاعیهٔ منتشرشده به‌صورت اعلان سیستمی (Push) و اعلان درون‌برنامه به دانشجویان ارسال می‌شود.</p>
+
+    {{#if hasAnnouncements}}
+    <table>
+      <thead><tr><th>عنوان</th><th>دسته</th><th>تاریخ</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+        {{#each announcements}}
+        <tr>
+          <td>
+            <strong>{{title}}</strong>
+            {{#if pinned}}<span class="pill">📌 سنجاق‌شده</span>{{/if}}
+          </td>
+          <td>{{categoryLabel}}</td>
+          <td class="muted">{{date}}</td>
+          <td>{{#if isPublished}}<span class="badge current">منتشرشده</span>{{else}}<span class="badge past">پیش‌نویس</span>{{/if}}</td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/admin/food/announcements/{{id}}/toggle" class="inline">
+                <button class="btn btn-ghost btn-sm" type="submit">{{#if isPublished}}لغو انتشار{{else}}انتشار{{/if}}</button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href="/admin/food/announcements/{{id}}/edit">ویرایش</a>
+              <form method="post" action="/admin/food/announcements/{{id}}/delete" class="inline" onsubmit="return confirm('حذف این اطلاعیه؟');">
+                <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="empty">هنوز اطلاعیه‌ای ثبت نشده است.</div>
+    {{/if}}
+  </div>
+
+  {{!-- Nearby-places note --}}
+  <div class="card">
+    <h2 style="margin:0">🗺️ نقشهٔ خوراکی‌های اطراف</h2>
+    <p class="muted" style="margin-bottom:0">این بخش به‌صورت زنده از OpenStreetMap تغذیه می‌شود و نیازی به مدیریت ندارد. برای اصلاح یا افزودن یک مکان، آن را در openstreetmap.org ویرایش کنید؛ تغییرات پس از چند دقیقه در اپ دیده می‌شود.</p>
+  </div>
+
+</div>
+{{> foot}}
