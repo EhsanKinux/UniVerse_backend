@@ -14,6 +14,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAccessGuard } from '../auth/guards/jwt-access-optional.guard';
 import type { AuthenticatedUser } from '../auth/types/jwt-payload.type';
 import {
+  byPushEndpoint,
+  ThrottleIdentity,
+} from '../common/throttler/throttle-identity';
+import {
   PublicKeyDto,
   PushSubscriptionDto,
   PushUnsubscribeDto,
@@ -43,10 +47,14 @@ export class PushController {
 
   @Post('subscribe')
   @HttpCode(201)
-  // This endpoint is open to anonymous callers and writes to the database, so
-  // cap it: one browser subscribes once per app open, so 30/min per IP is ample
-  // for real devices but stops scripts from flooding the subscriptions table.
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  // Open to anonymous callers and writes to the database, so it needs a cap —
+  // but the PWA calls this on EVERY app open, so a per-IP cap would break push
+  // for a whole campus sharing one address (the old 30/min per IP did exactly
+  // that). The push endpoint URL is unique per browser install, which makes it
+  // the right identity: 30/min per device is unreachable for a real browser and
+  // still stops a script flooding the subscriptions table.
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
+  @ThrottleIdentity({ limit: 30, ttl: 60_000, getTracker: byPushEndpoint })
   // Optional auth: anonymous subscribes still work (news broadcasts); a valid
   // Bearer token additionally links the device to that user.
   @UseGuards(OptionalJwtAccessGuard)
@@ -72,7 +80,8 @@ export class PushController {
 
   @Post('unsubscribe')
   @HttpCode(200)
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
+  @ThrottleIdentity({ limit: 30, ttl: 60_000, getTracker: byPushEndpoint })
   @ApiOperation({ summary: 'Remove a browser push subscription' })
   async unsubscribe(@Body() dto: PushUnsubscribeDto): Promise<{ ok: true }> {
     await this.push.removeSubscription(dto.endpoint);
