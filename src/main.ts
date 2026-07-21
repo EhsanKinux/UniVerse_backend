@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -9,6 +9,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import hbs from 'hbs';
 import { AppModule } from './app.module';
+import { ApiExceptionFilter } from './common/errors/api-exception.filter';
+import { requestIdMiddleware } from './common/request-id.middleware';
+import { parseTrustProxy } from './common/throttler/client-ip.util';
 
 /**
  * The application entry point. NestFactory builds the app from AppModule, then
@@ -18,6 +21,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  const logger = new Logger('Bootstrap');
 
   // --- Graceful shutdown -------------------------------------------------------
   // Without this, SIGTERM/SIGINT (Ctrl+C, docker stop, a deploy) kills the
@@ -61,12 +65,26 @@ async function bootstrap() {
   );
 
   // --- Reverse-proxy awareness -----------------------------------------------
-  // In production the PWA reaches this API through the Next.js server's
-  // same-origin `/api` proxy (browser → Next → here), so requests arrive from a
-  // local upstream. Trust `X-Forwarded-*` ONLY from a loopback address, so
-  // `req.ip` / `req.protocol` reflect the real client instead of the proxy —
-  // without letting a direct, non-local caller spoof those headers.
-  app.set('trust proxy', 'loopback');
+  // Nothing reaches this API directly in production: a TLS-terminating reverse
+  // proxy (and possibly a CDN in front of it) forwards every request, so the
+  // TCP connection always appears to come from that proxy. `trust proxy` tells
+  // Express how many of those hops to believe when reading `X-Forwarded-For`,
+  // which is what makes `req.ip` the STUDENT's address rather than the proxy's.
+  //
+  // Why this matters beyond tidiness: every per-IP rate limit is keyed on
+  // req.ip. Get this wrong and the whole university shares one bucket, so
+  // students start getting "too many requests" for something they didn't do.
+  //
+  // Default 'loopback' = one proxy on this machine (the documented Caddy/nginx
+  // setup). Add a CDN in front and it becomes 2 hops → set TRUST_PROXY=2.
+  // Verify from a phone with GET /_diagnostics/client — see AppController.
+  const trustProxy = parseTrustProxy(configService.get<string>('TRUST_PROXY'));
+  app.set('trust proxy', trustProxy);
+
+  // --- Request correlation id --------------------------------------------------
+  // Must run before everything else so EVERY response — including a rate-limit
+  // rejection or a crash — carries an id that also appears in the server log.
+  app.use(requestIdMiddleware);
 
   // --- Admin session + view engine -------------------------------------------
   // The /admin panel is server-rendered (Handlebars templates) and gated by a
@@ -117,26 +135,61 @@ async function bootstrap() {
     }),
   );
 
+  // --- Uniform error responses -------------------------------------------------
+  // Every failure — a wrong password, a rate limit, a database outage, a crash —
+  // leaves through here as the same JSON envelope with a machine-readable
+  // `code` and a `requestId`. That is what lets the PWA tell those cases apart
+  // and show the student something true, instead of one catch-all sentence.
+  app.useGlobalFilters(new ApiExceptionFilter());
+
   // --- CORS ------------------------------------------------------------------
-  // The PWA now calls this API through the Next.js same-origin `/api` proxy, so
-  // those requests are server-to-server and NOT subject to browser CORS. CORS
-  // therefore only governs DIRECT browser calls: a dev "escape hatch" base URL,
-  // or the server-rendered /admin panel and /docs. Set CORS_ORIGIN to the exact
-  // front-end origin(s) in production; when unset we reflect the request origin,
-  // which is convenient for local development only.
-  const corsOrigin = configService.get<string>('CORS_ORIGIN');
+  // Whether CORS applies depends on how the PWA is deployed. Behind the Next.js
+  // same-origin `/api` proxy the calls are server-to-server and CORS never
+  // enters the picture; when the browser calls this API on its own domain
+  // (NEXT_PUBLIC_API_BASE_URL=https://unib.…) EVERY request is policed by it.
+  //
+  // A rejected origin is uniquely nasty to debug: the browser refuses to hand
+  // the response to JavaScript, so the app sees no status and no body at all —
+  // it looks *identical* to the phone being offline, and the PWA used to say
+  // "check your internet connection" when the real problem was one missing
+  // entry in CORS_ORIGIN. We can't change what the browser reports, but we CAN
+  // make the server say so out loud, once per offending origin.
+  const allowedOrigins = (configService.get<string>('CORS_ORIGIN') ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const reportedOrigins = new Set<string>();
+
   app.enableCors({
-    origin: corsOrigin
-      ? corsOrigin
-          .split(',')
-          .map((o) => o.trim())
-          .filter(Boolean)
-      : // No explicit origins configured: reflect any origin in development
-        // (convenient), but in production allow NO cross-origin browser calls —
-        // reflecting arbitrary origins WITH credentials would let any website
-        // a user visits call this API from their browser.
-        !isProduction,
+    origin: (requestOrigin: string | undefined, callback) => {
+      // No Origin header: not a cross-origin browser call at all (curl, a
+      // health check, the Next.js server-side proxy). Nothing to police.
+      if (!requestOrigin) return callback(null, true);
+
+      if (allowedOrigins.includes(requestOrigin)) return callback(null, true);
+
+      // Nothing configured: reflect any origin in development (convenient),
+      // but allow NOTHING in production — reflecting arbitrary origins WITH
+      // credentials would let any site a student visits call this API as them.
+      if (allowedOrigins.length === 0 && !isProduction) {
+        return callback(null, true);
+      }
+
+      if (!reportedOrigins.has(requestOrigin)) {
+        reportedOrigins.add(requestOrigin);
+        logger.error(
+          `CORS refused origin "${requestOrigin}". The browser will report this ` +
+            `to the app as a network failure with no status code. ` +
+            `Fix: add it to CORS_ORIGIN (currently ${allowedOrigins.length ? allowedOrigins.join(', ') : '<unset>'}) and restart.`,
+        );
+      }
+      callback(null, false);
+    },
     credentials: true,
+    // Response headers are invisible to cross-origin JavaScript unless they are
+    // explicitly exposed. Without this the PWA cannot read how long to wait
+    // after a 429, nor show the request id a student would quote to us.
+    exposedHeaders: ['Retry-After', 'X-Request-Id'],
   });
 
   // --- Swagger / OpenAPI -----------------------------------------------------
@@ -178,6 +231,12 @@ async function bootstrap() {
   if (swaggerEnabled) {
     console.log(`📚 Swagger docs at        http://localhost:${port}/docs`);
   }
+  // Print the two settings that silently break logins for everyone when wrong,
+  // so a deploy either confirms them at a glance or shows you the problem.
+  console.log(`🔐 trust proxy            ${String(trustProxy)}`);
+  console.log(
+    `🌐 CORS origins           ${allowedOrigins.length ? allowedOrigins.join(', ') : isProduction ? '<unset — all cross-origin browser calls will be refused>' : '<unset — reflecting any origin (development)>'}`,
+  );
 }
 
 // `void` marks this floating promise as intentional (satisfies the linter).

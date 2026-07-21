@@ -1,14 +1,19 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ChartModule } from './chart/chart.module';
+import { AppThrottlerGuard } from './common/throttler/app-throttler.guard';
+import {
+  IDENTITY_THROTTLER,
+  identityThrottleSkip,
+} from './common/throttler/throttle-identity';
 import { validateEnv } from './config/env.validation';
 import { DocumentsModule } from './documents/documents.module';
 import { DormModule } from './dorm/dorm.module';
@@ -37,14 +42,36 @@ import { UsersModule } from './users/users.module';
     }),
     // Enables @Cron() decorators app-wide (the class-reminder job uses one).
     ScheduleModule.forRoot(),
-    // Rate limiting (per client IP, in memory). This global ceiling is a pure
-    // anti-abuse backstop — deliberately generous, because many students on
-    // campus Wi-Fi can share one public IP (NAT) and must not throttle each
-    // other. The endpoints that are actually worth attacking (login, register,
-    // refresh, admin login, push subscribe) carry much stricter @Throttle()
-    // overrides directly on their handlers.
-    ThrottlerModule.forRoot({
-      throttlers: [{ ttl: 60_000, limit: 1000 }],
+    // Rate limiting (in memory). TWO throttlers work together — see
+    // common/throttler/throttle-identity.ts for the full reasoning:
+    //
+    //   'default'  per client IP. A pure anti-flood backstop, deliberately
+    //              generous: hundreds of students share one public IP through
+    //              campus NAT, so anything tight here throttles innocent people.
+    //              Tune with RATE_LIMIT_PER_MINUTE without touching code.
+    //   'identity' per ACCOUNT / SESSION / DEVICE. Inert unless a route opts in
+    //              with @ThrottleIdentity(); this is what actually stops
+    //              password guessing, and it can never punish a bystander who
+    //              merely shares an IP with the attacker.
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: 60_000,
+            limit: config.get<number>('RATE_LIMIT_PER_MINUTE') ?? 1000,
+          },
+          {
+            name: IDENTITY_THROTTLER,
+            ttl: 60_000,
+            // Never reached: routes that opt in always override both numbers,
+            // and every other route skips this throttler entirely.
+            limit: Number.MAX_SAFE_INTEGER,
+            skipIf: identityThrottleSkip,
+          },
+        ],
+      }),
     }),
     PrismaModule, // database access (global)
     UsersModule, // user records
@@ -65,9 +92,9 @@ import { UsersModule } from './users/users.module';
   controllers: [AppController],
   providers: [
     AppService,
-    // Registering ThrottlerGuard as an APP_GUARD applies the rate limits above
-    // to EVERY route automatically; over-limit requests get a 429 response.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Registering the throttler guard as an APP_GUARD applies the rate limits
+    // above to EVERY route automatically; over-limit requests get a 429.
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
   ],
 })
 export class AppModule {}
