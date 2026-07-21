@@ -87,6 +87,23 @@ class EnvironmentVariables {
   @IsString()
   CORS_ORIGIN?: string;
 
+  // ----- Reverse proxy / rate limiting -----
+  // How many proxy hops sit in front of this API, so `req.ip` is the real
+  // student and not the proxy. "loopback" (default) = one proxy on this
+  // machine; "2" = a CDN in front of that proxy; "false" = no proxy at all.
+  // Never "true" in production — it lets anyone forge their own IP. Check the
+  // result with GET /_diagnostics/client.
+  @IsOptional()
+  @IsString()
+  TRUST_PROXY?: string;
+
+  // Global per-IP request ceiling (default 1000/min). Anti-flood only: hundreds
+  // of students share one public IP through campus NAT, so raise this rather
+  // than lower it. Brute-force protection lives in the per-account limits.
+  @IsOptional()
+  @IsNumber()
+  RATE_LIMIT_PER_MINUTE?: number;
+
   // ----- File uploads (the /admin documents library) -----
   // Folder where uploaded files are stored on disk (default "uploads", relative
   // to the project root) and the per-file size cap in MB (default 20). Both are
