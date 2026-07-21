@@ -22,6 +22,10 @@ import {
   EVENT_CATEGORY_LABELS,
 } from '../calendar/dto/active-calendar.dto';
 import { toJalaliInputValue } from '../calendar/jalali.util';
+import {
+  byAdminUsername,
+  ThrottleIdentity,
+} from '../common/throttler/throttle-identity';
 import { AdminAuthFilter } from './admin-auth.filter';
 import { AdminGuard } from './admin.guard';
 import { AdminLoginDto } from './dto/login.dto';
@@ -73,9 +77,17 @@ export class AdminController {
   }
 
   @Post('login')
-  // The admin login guards EVERYTHING staff can do, so it gets the strictest
-  // rate limit in the app: 5 attempts per minute per IP.
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  // The admin login guards EVERYTHING staff can do, so it keeps the strictest
+  // limit in the app — but keyed on the USERNAME being attacked rather than the
+  // IP, so two staff members on the same office network can't lock each other
+  // out. 5 attempts / 5 min, then blocked for 5 min.
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @ThrottleIdentity({
+    limit: 5,
+    ttl: 300_000,
+    blockDuration: 300_000,
+    getTracker: byAdminUsername,
+  })
   login(
     @Body() dto: AdminLoginDto,
     @Req() req: Request,
