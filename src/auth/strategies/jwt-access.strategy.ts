@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ApiErrorCode } from '../../common/errors/api-error';
 import { UsersService } from '../../users/users.service';
 import { AuthenticatedUser, JwtPayload } from '../types/jwt-payload.type';
 
@@ -37,7 +38,13 @@ export class JwtAccessStrategy extends PassportStrategy(
     // token was issued). If not, deny access.
     const user = await this.usersService.findById(payload.sub);
     if (!user) {
-      throw new UnauthorizedException('User no longer exists');
+      // A signed, unexpired token for a deleted account. Distinct from
+      // TOKEN_EXPIRED because refreshing would be pointless — the client must
+      // sign out rather than retry.
+      throw new UnauthorizedException({
+        code: ApiErrorCode.ACCOUNT_GONE,
+        message: 'This account no longer exists.',
+      });
     }
     return { id: user.id, email: user.email };
   }

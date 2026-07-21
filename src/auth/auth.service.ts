@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { ApiErrorCode } from '../common/errors/api-error';
 import { User } from '../generated/prisma/client';
 import { UsersService } from '../users/users.service';
 import { AuthResponseDto, UserDto } from './dto/auth-response.dto';
@@ -33,10 +34,15 @@ export class AuthService {
 
   /** Create a new account, then log the user straight in (return tokens). */
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
+    // findByEmail is case-insensitive, so "Ali@x.com" can't sneak in as a second
+    // account alongside "ali@x.com" (which would then be ambiguous at login).
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
       // 409 Conflict — the email is taken.
-      throw new ConflictException('An account with this email already exists.');
+      throw new ConflictException({
+        code: ApiErrorCode.EMAIL_TAKEN,
+        message: 'An account with this email already exists.',
+      });
     }
 
     // NEVER store the raw password — store a one-way bcrypt hash.
@@ -55,15 +61,23 @@ export class AuthService {
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.usersService.findByEmail(dto.email);
 
-    // IMPORTANT: use the SAME error message whether the email doesn't exist or
-    // the password is wrong, so attackers can't probe which emails are registered.
+    // IMPORTANT: use the SAME error code and message whether the email doesn't
+    // exist or the password is wrong, so attackers can't probe which emails are
+    // registered. (INVALID_CREDENTIALS is deliberately distinct from the
+    // TOKEN_* codes so the app can tell "wrong password" from "session over".)
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException({
+        code: ApiErrorCode.INVALID_CREDENTIALS,
+        message: 'Invalid email or password.',
+      });
     }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException({
+        code: ApiErrorCode.INVALID_CREDENTIALS,
+        message: 'Invalid email or password.',
+      });
     }
 
     return this.buildAuthResponse(user);
@@ -81,7 +95,12 @@ export class AuthService {
 
     // If the user is gone, or has logged out (hashedRefreshToken cleared), deny.
     if (!user || !user.hashedRefreshToken) {
-      throw new UnauthorizedException('Access denied.');
+      throw new UnauthorizedException({
+        code: ApiErrorCode.REFRESH_REJECTED,
+        message: user
+          ? 'This session was already revoked (logged out elsewhere).'
+          : 'The account no longer exists.',
+      });
     }
 
     // The token's signature was already verified by the strategy. Here we also
@@ -96,7 +115,10 @@ export class AuthService {
         Buffer.from(user.hashedRefreshToken),
       );
     if (!tokenMatches) {
-      throw new UnauthorizedException('Access denied.');
+      throw new UnauthorizedException({
+        code: ApiErrorCode.REFRESH_REJECTED,
+        message: 'This refresh token has been superseded or revoked.',
+      });
     }
 
     return this.buildAuthResponse(user);
@@ -123,12 +145,18 @@ export class AuthService {
   ): Promise<{ success: boolean }> {
     const user = await this.usersService.findById(userId);
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException({
+        code: ApiErrorCode.ACCOUNT_GONE,
+        message: 'The account no longer exists.',
+      });
     }
 
     const passwordMatches = await bcrypt.compare(password, user.password);
     if (!passwordMatches) {
-      throw new ForbiddenException('رمز عبور نادرست است.');
+      throw new ForbiddenException({
+        code: ApiErrorCode.WRONG_PASSWORD,
+        message: 'The confirmation password is incorrect.',
+      });
     }
 
     await this.usersService.purgeAndDelete(userId);
@@ -139,7 +167,10 @@ export class AuthService {
   async getProfile(userId: string): Promise<UserDto> {
     const user = await this.usersService.findById(userId);
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException({
+        code: ApiErrorCode.ACCOUNT_GONE,
+        message: 'The account no longer exists.',
+      });
     }
     return this.toUserDto(user);
   }

@@ -6,6 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { NormalizeEmail } from '../../common/normalize-email.decorator';
 
 /**
  * Describes + validates the JSON body of POST /auth/register.
@@ -21,6 +22,9 @@ export class RegisterDto {
     example: 'student@univers.app',
     description: 'A unique, valid email address used to log in.',
   })
+  // Store ONE canonical form (trimmed, lowercase) so the @unique constraint and
+  // every later login lookup agree on what "the same email" means.
+  @NormalizeEmail()
   @IsEmail({}, { message: 'Please provide a valid email address.' })
   email!: string;
 
