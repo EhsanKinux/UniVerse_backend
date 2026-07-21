@@ -27,9 +27,33 @@ export class UsersService {
     this.avatarDir = resolveAvatarDir(config);
   }
 
-  /** Find a user by their unique email. Returns null if none exists. */
-  findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+  /**
+   * Find a user by email, case-insensitively. Returns null if none exists.
+   *
+   * Two steps on purpose:
+   *  1. The exact lookup on the normalised address. This hits the `email`
+   *     UNIQUE index, so it's a single indexed read — and because the DTOs
+   *     normalise every incoming email (see NormalizeEmail), this is the path
+   *     virtually every request takes.
+   *  2. Only if that finds nothing, a case-insensitive scan. This exists for
+   *     LEGACY rows created before normalisation, e.g. someone who signed up as
+   *     "Ali@Gmail.com" on a phone keyboard. Without it those students can
+   *     never log in again — the exact match fails and they just get
+   *     "wrong email or password". Postgres can't use the btree index for a
+   *     case-insensitive compare, so this is a table scan — acceptable because
+   *     it only ever runs for an address we already know isn't there.
+   */
+  async findByEmail(email: string) {
+    const normalized = email.trim().toLowerCase();
+
+    const exact = await this.prisma.user.findUnique({
+      where: { email: normalized },
+    });
+    if (exact) return exact;
+
+    return this.prisma.user.findFirst({
+      where: { email: { equals: normalized, mode: 'insensitive' } },
+    });
   }
 
   /** Find a user by id. Returns null if none exists. */
